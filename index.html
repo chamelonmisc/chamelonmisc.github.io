@@ -72,6 +72,7 @@
         let planetColor = '#FFFFFF';
         let dt = 1;
         let currentEditorMode = 'planet';
+        let currentSeed;
 
         // Portal creation variables
         let isCreatingPortal = false;
@@ -86,27 +87,13 @@
 
         function setup() {
             createCanvas(windowWidth, windowHeight);
-
-            // Initialize planets
-            for (let i = 0; i < numPlanets; i++) {
-                let mass = random(5, 15);
-                let radius = random(100, min(windowWidth / 2, windowHeight / 2));
-                let angle = random(0, TWO_PI);
-                let planetPos = createVector(radius * cos(angle), radius * sin(angle));
-
-                // Find direction of orbit and set velocity
-                let planetVel = planetPos.copy();
-                planetVel.rotate(HALF_PI);
-                planetVel.normalize();
-                planetVel.mult(sqrt((G * mass) / (radius)));
-                planetVel.mult(random(1 - destabilise, 1 + destabilise));
-
-                planets.push(new Body(mass, planetPos, planetVel));
-            }
+            currentSeed = Math.floor(random(100000));
+            randomSeed(currentSeed);
+            initializePlanets();
 
             // Time scale slider
             document.getElementById('time-scale').addEventListener('input', (e) => {
-                dt = parseFloat(e.target.value);
+                dt = parseFloat(e.target.value); // Ensure dt is updated when the slider changes
             });
 
             // Planet scale slider
@@ -125,6 +112,25 @@
                     selectedPlanet.color = planetColor;
                 }
             });
+        }
+
+        function initializePlanets() {
+            planets = [];
+            for (let i = 0; i < numPlanets; i++) {
+                let mass = random(5, 15);
+                let radius = random(100, min(windowWidth / 2, windowHeight / 2));
+                let angle = random(0, TWO_PI);
+                let planetPos = createVector(radius * cos(angle), radius * sin(angle));
+
+                // Find direction of orbit and set velocity
+                let planetVel = planetPos.copy();
+                planetVel.rotate(HALF_PI);
+                planetVel.normalize();
+                planetVel.mult(sqrt((G * mass) / (radius)));
+                planetVel.mult(random(1 - destabilise, 1 + destabilise));
+
+                planets.push(new Body(mass, planetPos, planetVel));
+            }
         }
 
         function draw() {
@@ -152,10 +158,23 @@
                 // Check for portal interactions
                 for (let planet of planets) {
                     for (let portal of portals) {
-                        if (portal.contains(planet.pos)) {
-                            planet.pos = portal.exit.copy();
-                            planet.vel.mult(1.5);
+                        if (portal.contains(planet.pos) && planet.cooldown <= 0) {
+                            // Teleport the planet to the other end of the portal
+                            if (dist(planet.pos.x, planet.pos.y, portal.pos.x, portal.pos.y) < 50) {
+                                planet.pos = portal.exit.copy();
+                            } else if (dist(planet.pos.x, planet.pos.y, portal.exit.x, portal.exit.y) < 50) {
+                                planet.pos = portal.pos.copy();
+                            }
+                            planet.vel.mult(1.5); // Increase velocity for fun
+                            planet.cooldown = 10; // Lower cooldown time to 10 frames
                         }
+                    }
+                }
+
+                // Update cooldown timers
+                for (let planet of planets) {
+                    if (planet.cooldown > 0) {
+                        planet.cooldown--;
                     }
                 }
             } else {
@@ -234,8 +253,9 @@
                 // Check if a portal is clicked
                 let portalClicked = false;
                 for (let i = portals.length - 1; i >= 0; i--) {
-                    let d = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, portals[i].pos.x, portals[i].pos.y);
-                    if (d < 20) {
+                    let d1 = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, portals[i].pos.x, portals[i].pos.y);
+                    let d2 = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, portals[i].exit.x, portals[i].exit.y);
+                    if (d1 < 50 || d2 < 50) {
                         selectedPortal = portals[i];
                         document.getElementById('portal-specific-ui').style.display = 'block';
                         document.getElementById('pause-menu').style.display = 'none';
@@ -290,9 +310,18 @@
             }
 
             if (isEditorMode && currentEditorMode === 'portal' && selectedPortal) {
-                // Drag the selected portal
-                selectedPortal.pos.x = (mouseX - width / 2 - offsetX) / zoom;
-                selectedPortal.pos.y = (mouseY - height / 2 - offsetY) / zoom;
+                // Drag the selected portal's end that was clicked
+                let d1 = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, selectedPortal.pos.x, selectedPortal.pos.y);
+                let d2 = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, selectedPortal.exit.x, selectedPortal.exit.y);
+                if (d1 < 50) {
+                    // Dragging the start of the portal
+                    selectedPortal.pos.x = (mouseX - width / 2 - offsetX) / zoom;
+                    selectedPortal.pos.y = (mouseY - height / 2 - offsetY) / zoom;
+                } else if (d2 < 50) {
+                    // Dragging the end of the portal
+                    selectedPortal.exit.x = (mouseX - width / 2 - offsetX) / zoom;
+                    selectedPortal.exit.y = (mouseY - height / 2 - offsetY) / zoom;
+                }
             }
         }
 
@@ -343,6 +372,21 @@
                 newPlanet.color = '#FFFFFF'; // Set planet color to white
                 planets.push(newPlanet);
                 numPlanets++;
+            }
+
+            // Display the current seed when "T" is pressed
+            if (key === 't' || key === 'T') {
+                alert(`Current Seed: ${currentSeed}`);
+            }
+
+            // Load a seed when "L" is pressed
+            if (key === 'l' || key === 'L') {
+                let seed = prompt("Enter the seed:");
+                if (seed !== null) {
+                    currentSeed = parseInt(seed);
+                    randomSeed(currentSeed);
+                    initializePlanets();
+                }
             }
         }
 
@@ -403,19 +447,9 @@
 
         function destroyPortal() {
             if (selectedPortal) {
-                // Find the linked portal
-                let linkedPortal = portals.find(p => p.pos === selectedPortal.exit || p.exit === selectedPortal.pos);
-                if (linkedPortal) {
-                    // Remove both portals
-                    let index1 = portals.indexOf(selectedPortal);
-                    let index2 = portals.indexOf(linkedPortal);
-                    if (index1 !== -1) portals.splice(index1, 1);
-                    if (index2 !== -1) portals.splice(index2, 1);
-                } else {
-                    // Remove only the selected portal
-                    let index = portals.indexOf(selectedPortal);
-                    if (index !== -1) portals.splice(index, 1);
-                }
+                // Remove the selected portal
+                let index = portals.indexOf(selectedPortal);
+                if (index !== -1) portals.splice(index, 1);
                 selectedPortal = null;
                 document.getElementById('portal-specific-ui').style.display = 'none';
             }
@@ -484,6 +518,7 @@
             this.vel = _vel;
             this.d = this.mass * 2;
             this.color = '#FFFFFF';
+            this.cooldown = 0; // Cooldown timer for portals
 
             this.show = function() {
                 fill(this.color);
@@ -492,15 +527,15 @@
             };
 
             this.move = function() {
-                this.pos.x += this.vel.x * dt;
-                this.pos.y += this.vel.y * dt;
+                this.pos.x += this.vel.x * dt; // Apply dt here
+                this.pos.y += this.vel.y * dt; // Apply dt here
             };
 
             this.attract = function(child) {
                 let r = dist(this.pos.x, this.pos.y, child.pos.x, child.pos.y);
                 if (r > 5) {
                     let f = (this.pos.copy()).sub(child.pos);
-                    f.setMag((G * this.mass * child.mass) / (r * r) * dt);
+                    f.setMag((G * this.mass * child.mass) / (r * r) * dt); // Apply dt here
                     child.applyForce(f);
                 }
             };
@@ -525,7 +560,8 @@
             };
 
             this.contains = function(point) {
-                return dist(point.x, point.y, this.pos.x, this.pos.y) < 20;
+                // Increase the hitbox range to 50 pixels
+                return dist(point.x, point.y, this.pos.x, this.pos.y) < 50 || dist(point.x, point.y, this.exit.x, this.exit.y) < 50;
             };
         }
     </script>
