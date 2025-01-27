@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gravity Simulation</title>
+    <title>The Chamelon Universe</title>
     <style>
         body {
             padding: 0;
@@ -117,7 +117,7 @@
         function initializePlanets() {
             planets = [];
             for (let i = 0; i < numPlanets; i++) {
-                let mass = random(5, 15);
+                let mass = random(0.31, 35);
                 let radius = random(100, min(windowWidth / 2, windowHeight / 2));
                 let angle = random(0, TWO_PI);
                 let planetPos = createVector(radius * cos(angle), radius * sin(angle));
@@ -219,7 +219,7 @@
             } else {
                 newZoom = zoom / zoomFactor; // Zoom out
             }
-            newZoom = constrain(newZoom, 0.1, 10); // Limit zoom range
+            newZoom = constrain(newZoom, 0.1, 98); // Limit zoom range
 
             // Calculate the new offset to keep the zoom centered on the mouse
             let mouseXBefore = (mouseX - width / 2 - offsetX) / zoom;
@@ -365,7 +365,7 @@
 
             // Add a new planet when "N" is pressed (only if in editor mode)
             if (isEditorMode && currentEditorMode === 'planet' && key === 'n') {
-                let mass = random(5, 15);
+                let mass = random(0.31, 35);
                 let planetPos = createVector((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom);
                 let planetVel = createVector(0, 0); // Start with zero velocity
                 let newPlanet = new Body(mass, planetPos, planetVel);
