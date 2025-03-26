@@ -1,595 +1,909 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head> 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Chamelon Universe</title>
+    <title>2D Space Simulator</title>
     <style>
         body {
-            padding: 0;
             margin: 0;
             overflow: hidden;
-            font-family: 'Arial', sans-serif;
-            background: #0e0e0e;
-            color: #fff;
+            background-color: #000;
+            font-family: Arial, sans-serif;
         }
-        #pause-menu {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(30, 30, 30, 0.9);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-            display: none;
-            backdrop-filter: blur(10px);
-            z-index: 1000;
-        }
-        #planet-ui, #portal-ui, #portal-specific-ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(30, 30, 30, 0.9);
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-            display: none;
-            backdrop-filter: blur(10px);
-            z-index: 1000;
-        }
-        #planet-ui label, #portal-ui label {
+        canvas {
             display: block;
-            margin: 10px 0 5px;
         }
-        #planet-ui input[type="range"], #portal-ui input[type="range"] {
-            width: 100%;
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            user-select: none;
+            z-index: 10;
         }
-        #planet-ui input[type="color"], #portal-ui input[type="color"] {
-            width: 100%;
-            padding: 0;
-            border: none;
+        .time-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 30px;
+            font-size: 14px;
+            user-select: none;
+            z-index: 10;
+        }
+        .time-btn {
+            cursor: pointer;
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .time-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .time-btn.active {
+            background: rgba(0, 150, 255, 0.5);
+        }
+        .simulation-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            user-select: none;
+            z-index: 10;
+        }
+        @media (max-width: 600px) {
+            .controls, .time-controls, .simulation-info {
+                font-size: 12px;
+                padding: 5px;
+            }
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.1.9/lib/p5.js"></script>
-    <script>
-        let planets = [];
-        let portals = [];
-        let numPlanets = 4;
-        let G = 120;
-        let destabilise = 0.15;
-        let isPaused = false;
-        let isEditorMode = false;
-        let selectedPlanet = null;
-        let selectedPortal = null;
-        let isSettingDirection = false;
-        let dragStartPos = null;
-        let isDraggingEnabled = false;
-        let isSimulatingTrails = false;
-        let isSimulatingAllTrails = false;
-        let allTrailPoints = [];
-        let timeScale = 1;
-        let planetScale = 1;
-        let planetColor = '#FFFFFF';
-        let dt = 1;
-        let currentEditorMode = 'planet';
-        let currentSeed;
-
-        // Portal creation variables
-        let isCreatingPortal = false;
-        let portalStartPos = null;
-
-        // Zoom and scroll variables
-        let zoom = 1;
-        let offsetX = 0;
-        let offsetY = 0;
-        let isDragging = false;
-        let dragStartX, dragStartY;
-
-        function setup() {
-            createCanvas(windowWidth, windowHeight);
-            currentSeed = Math.floor(random(100000));
-            randomSeed(currentSeed);
-            initializePlanets();
-
-            // Time scale slider
-            document.getElementById('time-scale').addEventListener('input', (e) => {
-                dt = parseFloat(e.target.value); // Ensure dt is updated when the slider changes
-            });
-
-            // Planet scale slider
-            document.getElementById('planet-scale').addEventListener('input', (e) => {
-                planetScale = parseFloat(e.target.value);
-                if (selectedPlanet) {
-                    selectedPlanet.d = selectedPlanet.mass * 2 * planetScale;
-                    selectedPlanet.mass = selectedPlanet.d / 2;
-                }
-            });
-
-            // Planet color picker
-            document.getElementById('planet-color').addEventListener('input', (e) => {
-                planetColor = e.target.value;
-                if (selectedPlanet) {
-                    selectedPlanet.color = planetColor;
-                }
-            });
-        }
-
-        function initializePlanets() {
-            planets = [];
-            for (let i = 0; i < numPlanets; i++) {
-                let mass = random(0.31, 35);
-                let radius = random(100, min(windowWidth / 2, windowHeight / 2));
-                let angle = random(0, TWO_PI);
-                let planetPos = createVector(radius * cos(angle), radius * sin(angle));
-
-                // Find direction of orbit and set velocity
-                let planetVel = planetPos.copy();
-                planetVel.rotate(HALF_PI);
-                planetVel.normalize();
-                planetVel.mult(sqrt((G * mass) / (radius)));
-                planetVel.mult(random(1 - destabilise, 1 + destabilise));
-
-                planets.push(new Body(mass, planetPos, planetVel));
-            }
-        }
-
-        function draw() {
-            background(0);
-
-            // Apply zoom and scroll transformations
-            translate(width / 2 + offsetX, height / 2 + offsetY);
-            scale(zoom);
-
-            if (!isPaused) {
-                // Calculate forces between all pairs of planets
-                for (let i = 0; i < planets.length; i++) {
-                    for (let j = i + 1; j < planets.length; j++) {
-                        planets[i].attract(planets[j]);
-                        planets[j].attract(planets[i]);
-                    }
-                }
-
-                // Update and display planets
-                for (let i = numPlanets - 1; i >= 0; i--) {
-                    planets[i].move();
-                    planets[i].show();
-                }
-
-                // Check for portal interactions
-                for (let planet of planets) {
-                    for (let portal of portals) {
-                        if (portal.contains(planet.pos) && planet.cooldown <= 0) {
-                            // Teleport the planet to the other end of the portal
-                            if (dist(planet.pos.x, planet.pos.y, portal.pos.x, portal.pos.y) < 50) {
-                                planet.pos = portal.exit.copy();
-                            } else if (dist(planet.pos.x, planet.pos.y, portal.exit.x, portal.exit.y) < 50) {
-                                planet.pos = portal.pos.copy();
-                            }
-                            planet.vel.mult(1.5); // Increase velocity for fun
-                            planet.cooldown = 10; // Lower cooldown time to 10 frames
-                        }
-                    }
-                }
-
-                // Update cooldown timers
-                for (let planet of planets) {
-                    if (planet.cooldown > 0) {
-                        planet.cooldown--;
-                    }
-                }
-            } else {
-                // Display the current state without updating
-                for (let i = numPlanets - 1; i >= 0; i--) {
-                    planets[i].show();
-                }
-
-                // Show pause menu if planet editor is not open
-                if (!selectedPlanet && !selectedPortal && isPaused) {
-                    document.getElementById('pause-menu').style.display = 'block';
-                } else {
-                    document.getElementById('pause-menu').style.display = 'none';
-                }
-            }
-
-            // Draw portals
-            for (let portal of portals) {
-                portal.show();
-            }
-
-            // If simulating trails, draw them
-            if (isSimulatingTrails && selectedPlanet) {
-                simulateTrail(selectedPlanet);
-                drawTrail(trailPoints, 255);
-            }
-
-            if (isSimulatingAllTrails) {
-                simulateAllTrails();
-                for (let i = 0; i < planets.length; i++) {
-                    drawTrail(allTrailPoints[i], 255);
-                }
-            }
-        }
-
-        function mouseWheel(event) {
-            // Adjust zoom level based on scroll input, centered on the mouse cursor
-            let zoomFactor = 1.1;
-            let newZoom;
-            if (event.deltaY < 0) {
-                newZoom = zoom * zoomFactor; // Zoom in
-            } else {
-                newZoom = zoom / zoomFactor; // Zoom out
-            }
-            newZoom = constrain(newZoom, 0.1, 98); // Limit zoom range
-
-            // Calculate the new offset to keep the zoom centered on the mouse
-            let mouseXBefore = (mouseX - width / 2 - offsetX) / zoom;
-            let mouseYBefore = (mouseY - height / 2 - offsetY) / zoom;
-            zoom = newZoom;
-            let mouseXAfter = (mouseX - width / 2 - offsetX) / zoom;
-            let mouseYAfter = (mouseY - height / 2 - offsetY) / zoom;
-            offsetX += (mouseXAfter - mouseXBefore) * zoom;
-            offsetY += (mouseYAfter - mouseYBefore) * zoom;
-
-            return false; // Prevent default scrolling behavior
-        }
-
-        function mousePressed() {
-            if (isEditorMode && currentEditorMode === 'planet') {
-                // Check if a planet is clicked
-                let planetClicked = false;
-                for (let i = planets.length - 1; i >= 0; i--) {
-                    let d = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, planets[i].pos.x, planets[i].pos.y);
-                    if (d < planets[i].d / 2) {
-                        selectedPlanet = planets[i];
-                        document.getElementById('planet-ui').style.display = 'block';
-                        document.getElementById('pause-menu').style.display = 'none';
-                        planetClicked = true;
-                        break;
-                    }
-                }
-            }
-
-            if (isEditorMode && currentEditorMode === 'portal') {
-                // Check if a portal is clicked
-                let portalClicked = false;
-                for (let i = portals.length - 1; i >= 0; i--) {
-                    let d1 = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, portals[i].pos.x, portals[i].pos.y);
-                    let d2 = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, portals[i].exit.x, portals[i].exit.y);
-                    if (d1 < 50 || d2 < 50) {
-                        selectedPortal = portals[i];
-                        document.getElementById('portal-specific-ui').style.display = 'block';
-                        document.getElementById('pause-menu').style.display = 'none';
-                        portalClicked = true;
-                        break;
-                    }
-                }
-            }
-
-            // Start dragging to scroll (only if not in editor mode or pause menu)
-            if (!isEditorMode && !isPaused) {
-                isDragging = true;
-                dragStartX = mouseX - offsetX;
-                dragStartY = mouseY - offsetY;
-            }
-
-            // Portal creation logic
-            if (isCreatingPortal) {
-                if (!portalStartPos) {
-                    // First click: set the start position of the portal
-                    portalStartPos = createVector((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom);
-                } else {
-                    // Second click: set the exit position and create the portal
-                    let portalExitPos = createVector((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom);
-                    portals.push(new Portal(portalStartPos, portalExitPos));
-                    portalStartPos = null; // Reset for the next portal
-                    isCreatingPortal = false; // Stop portal creation mode
-                }
-            }
-        }
-
-        function mouseDragged() {
-            if (isDragging) {
-                offsetX = mouseX - dragStartX;
-                offsetY = mouseY - dragStartY;
-            }
-
-            if (isEditorMode && currentEditorMode === 'planet' && selectedPlanet) {
-                if (isDraggingEnabled) {
-                    // Drag the selected planet
-                    selectedPlanet.pos.x = (mouseX - width / 2 - offsetX) / zoom;
-                    selectedPlanet.pos.y = (mouseY - height / 2 - offsetY) / zoom;
-                } else if (isSettingDirection) {
-                    // Set the direction of the selected planet
-                    if (!dragStartPos) {
-                        dragStartPos = selectedPlanet.pos.copy();
-                    }
-                    let dragEndPos = createVector((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom);
-                    let force = p5.Vector.sub(dragStartPos, dragEndPos).mult(0.1); // Reverse direction
-                    selectedPlanet.vel = force;
-                }
-            }
-
-            if (isEditorMode && currentEditorMode === 'portal' && selectedPortal) {
-                // Drag the selected portal's end that was clicked
-                let d1 = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, selectedPortal.pos.x, selectedPortal.pos.y);
-                let d2 = dist((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom, selectedPortal.exit.x, selectedPortal.exit.y);
-                if (d1 < 50) {
-                    // Dragging the start of the portal
-                    selectedPortal.pos.x = (mouseX - width / 2 - offsetX) / zoom;
-                    selectedPortal.pos.y = (mouseY - height / 2 - offsetY) / zoom;
-                } else if (d2 < 50) {
-                    // Dragging the end of the portal
-                    selectedPortal.exit.x = (mouseX - width / 2 - offsetX) / zoom;
-                    selectedPortal.exit.y = (mouseY - height / 2 - offsetY) / zoom;
-                }
-            }
-        }
-
-        function mouseReleased() {
-            isDragging = false;
-            if (isEditorMode && currentEditorMode === 'planet' && selectedPlanet && isSettingDirection) {
-                dragStartPos = null;
-            }
-        }
-
-        function keyPressed() {
-            // Toggle pause state when "P" is pressed
-            if (key === 'p' || key === 'P') {
-                isPaused = !isPaused;
-                document.getElementById('pause-menu').style.display = isPaused ? 'block' : 'none';
-            }
-
-            // Toggle editor mode when "E" is pressed
-            if (key === 'e' || key === 'E') {
-                isEditorMode = !isEditorMode;
-                currentEditorMode = 'planet';
-                document.getElementById('planet-ui').style.display = isEditorMode ? 'block' : 'none';
-                document.getElementById('portal-ui').style.display = 'none';
-                document.getElementById('portal-specific-ui').style.display = 'none';
-
-                // Ensure pause menu visibility is correct
-                document.getElementById('pause-menu').style.display = isPaused ? 'block' : 'none';
-            }
-
-            // Toggle portal editor mode when "O" is pressed
-            if (key === 'o' || key === 'O') {
-                isEditorMode = !isEditorMode;
-                currentEditorMode = 'portal';
-                document.getElementById('portal-ui').style.display = isEditorMode ? 'block' : 'none';
-                document.getElementById('planet-ui').style.display = 'none';
-                document.getElementById('portal-specific-ui').style.display = 'none';
-
-                // Ensure pause menu visibility is correct
-                document.getElementById('pause-menu').style.display = isPaused ? 'block' : 'none';
-            }
-
-            // Add a new planet when "N" is pressed (only if in editor mode)
-            if (isEditorMode && currentEditorMode === 'planet' && key === 'n') {
-                let mass = random(0.31, 35);
-                let planetPos = createVector((mouseX - width / 2 - offsetX) / zoom, (mouseY - height / 2 - offsetY) / zoom);
-                let planetVel = createVector(0, 0); // Start with zero velocity
-                let newPlanet = new Body(mass, planetPos, planetVel);
-                newPlanet.color = '#FFFFFF'; // Set planet color to white
-                planets.push(newPlanet);
-                numPlanets++;
-            }
-
-            // Display the current seed when "T" is pressed
-            if (key === 't' || key === 'T') {
-                alert(`Current Seed: ${currentSeed}`);
-            }
-
-            // Load a seed when "L" is pressed
-            if (key === 'l' || key === 'L') {
-                let seed = prompt("Enter the seed:");
-                if (seed !== null) {
-                    currentSeed = parseInt(seed);
-                    randomSeed(currentSeed);
-                    initializePlanets();
-                }
-            }
-        }
-
-        function enableDrag() {
-            isDraggingEnabled = true;
-            isSettingDirection = false;
-        }
-
-        function enableSetDirection() {
-            isSettingDirection = true;
-            isDraggingEnabled = false;
-        }
-
-        function enableSimulateTrails() {
-            isSimulatingTrails = true;
-            isSimulatingAllTrails = false;
-        }
-
-        function enableSimulateAllTrails() {
-            isSimulatingAllTrails = !isSimulatingAllTrails;
-            if (isSimulatingAllTrails) {
-                simulateAllTrails();
-            }
-        }
-
-        function destroyPlanet() {
-            if (selectedPlanet) {
-                let index = planets.indexOf(selectedPlanet);
-                if (index !== -1) {
-                    planets.splice(index, 1);
-                    numPlanets--;
-                    selectedPlanet = null;
-                    document.getElementById('planet-ui').style.display = 'none';
-                }
-            }
-        }
-
-        function killOffscreenPlanets() {
-            for (let i = planets.length - 1; i >= 0; i--) {
-                let planet = planets[i];
-                let screenX = (planet.pos.x * zoom) + width / 2 + offsetX;
-                let screenY = (planet.pos.y * zoom) + height / 2 + offsetY;
-                if (screenX < 0 || screenX > width || screenY < 0 || screenY > height) {
-                    planets.splice(i, 1);
-                    numPlanets--;
-                }
-            }
-        }
-
-        function makePortal() {
-            isCreatingPortal = true;
-            portalStartPos = null; // Reset portal start position
-        }
-
-        function destroyAllPortals() {
-            portals = []; // Clear all portals
-        }
-
-        function destroyPortal() {
-            if (selectedPortal) {
-                // Remove the selected portal
-                let index = portals.indexOf(selectedPortal);
-                if (index !== -1) portals.splice(index, 1);
-                selectedPortal = null;
-                document.getElementById('portal-specific-ui').style.display = 'none';
-            }
-        }
-
-        function simulateTrail(planet) {
-            trailPoints = [];
-            let simPlanets = planets.map(p => new Body(p.mass, p.pos.copy(), p.vel.copy()));
-
-            for (let i = 0; i < 500; i++) {
-                for (let j = 0; j < simPlanets.length; j++) {
-                    for (let k = 0; k < simPlanets.length; k++) {
-                        if (k !== j) {
-                            let r = p5.Vector.sub(simPlanets[k].pos, simPlanets[j].pos);
-                            let f = (G * simPlanets[k].mass * simPlanets[j].mass) / (r.magSq());
-                            r.setMag(f);
-                            simPlanets[j].vel.add(p5.Vector.div(r, simPlanets[j].mass));
-                        }
-                    }
-                    simPlanets[j].pos.add(simPlanets[j].vel);
-                }
-
-                if (simPlanets.includes(planet)) {
-                    trailPoints.push(simPlanets[planets.indexOf(planet)].pos.copy());
-                }
-            }
-        }
-
-        function simulateAllTrails() {
-            allTrailPoints = Array(planets.length).fill().map(() => []);
-            let simPlanets = planets.map(p => new Body(p.mass, p.pos.copy(), p.vel.copy()));
-
-            for (let i = 0; i < 500; i++) {
-                for (let j = 0; j < simPlanets.length; j++) {
-                    for (let k = 0; k < simPlanets.length; k++) {
-                        if (k !== j) {
-                            let r = p5.Vector.sub(simPlanets[k].pos, simPlanets[j].pos);
-                            let f = (G * simPlanets[k].mass * simPlanets[j].mass) / (r.magSq());
-                            r.setMag(f);
-                            simPlanets[j].vel.add(p5.Vector.div(r, simPlanets[j].mass));
-                        }
-                    }
-                    simPlanets[j].pos.add(simPlanets[j].vel);
-                }
-
-                for (let j = 0; j < simPlanets.length; j++) {
-                    allTrailPoints[j].push(simPlanets[j].pos.copy());
-                }
-            }
-        }
-
-        function drawTrail(points, trailColor = 64) {
-            noFill();
-            stroke(trailColor);
-            strokeWeight(2);
-            beginShape();
-            for (let point of points) {
-                vertex(point.x, point.y);
-            }
-            endShape();
-        }
-
-        function Body(_mass, _pos, _vel) {
-            this.mass = _mass;
-            this.pos = _pos;
-            this.vel = _vel;
-            this.d = this.mass * 2;
-            this.color = '#FFFFFF';
-            this.cooldown = 0; // Cooldown timer for portals
-
-            this.show = function() {
-                fill(this.color);
-                noStroke();
-                ellipse(this.pos.x, this.pos.y, this.d, this.d);
-            };
-
-            this.move = function() {
-                this.pos.x += this.vel.x * dt; // Apply dt here
-                this.pos.y += this.vel.y * dt; // Apply dt here
-            };
-
-            this.attract = function(child) {
-                let r = dist(this.pos.x, this.pos.y, child.pos.x, child.pos.y);
-                if (r > 5) {
-                    let f = (this.pos.copy()).sub(child.pos);
-                    f.setMag((G * this.mass * child.mass) / (r * r) * dt); // Apply dt here
-                    child.applyForce(f);
-                }
-            };
-
-            this.applyForce = function(f) {
-                this.vel.x += f.x / this.mass;
-                this.vel.y += f.y / this.mass;
-            };
-        }
-
-        function Portal(pos, exit) {
-            this.pos = pos;
-            this.exit = exit;
-
-            this.show = function() {
-                stroke(0, 255, 0);
-                strokeWeight(2);
-                fill(0, 255, 0, 50);
-                ellipse(this.pos.x, this.pos.y, 40, 40);
-                ellipse(this.exit.x, this.exit.y, 40, 40);
-                line(this.pos.x, this.pos.y, this.exit.x, this.exit.y);
-            };
-
-            this.contains = function(point) {
-                // Increase the hitbox range to 50 pixels
-                return dist(point.x, point.y, this.pos.x, this.pos.y) < 50 || dist(point.x, point.y, this.exit.x, this.exit.y) < 50;
-            };
-        }
-    </script>
 </head>
 <body>
-    <div id="pause-menu">
-        <button onclick="enableSimulateAllTrails()">Simulate All Trails</button>
-        <button onclick="killOffscreenPlanets()">Kill Offscreen Planets</button>
-        <label for="time-scale">Time Scale:</label>
-        <input type="range" id="time-scale" min="0.1" max="5" step="0.1" value="1">
+    <canvas id="spaceCanvas"></canvas>
+    <div class="controls">
+        <p><strong>Space Simulator Controls:</strong></p>
+        <p>Press <strong>N</strong> to create a new planet at cursor position</p>
+        <p>Hover over a planet and press <strong>D</strong> to delete it</p>
+        <p>Press <strong>Q</strong> to simulate planet paths</p>
+        <p><strong>Mouse wheel</strong> to zoom in/out</p>
+        <p><strong>Drag</strong> to pan the view</p>
     </div>
-    <div id="planet-ui">
-        <button onclick="enableDrag()">Drag</button>
-        <button onclick="enableSetDirection()">Set Direction</button>
-        <button onclick="enableSimulateTrails()">Simulate Trails</button>
-        <button onclick="destroyPlanet()">Destroy Planet</button>
-        <label for="planet-scale">Planet Scale:</label>
-        <input type="range" id="planet-scale" min="0.5" max="3" step="0.1" value="1">
-        <label for="planet-color">Planet Color:</label>
-        <input type="color" id="planet-color" value="#FFFFFF">
+    
+    <div class="simulation-info" id="simulationInfo" style="display: none;">
+        <p><strong>Simulating paths...</strong></p>
+        <div id="simulationProgress">0%</div>
     </div>
-    <div id="portal-ui">
-        <button onclick="makePortal()">Make Portal</button>
-        <button onclick="destroyAllPortals()">Destroy All Portals</button>
+    
+    <div class="time-controls">
+        <div class="time-btn" data-speed="1">1x</div>
+        <div class="time-btn" data-speed="2">2x</div>
+        <div class="time-btn" data-speed="4">4x</div>
+        <div class="time-btn active" data-speed="8">8x</div>
+        <div class="time-btn" data-speed="16">16x</div>
+        <div class="time-btn" data-speed="32">32x</div>
+        <div class="time-btn" data-speed="64">64x</div>
+        <div class="time-btn" data-speed="128">128x</div>
     </div>
-    <div id="portal-specific-ui">
-        <button onclick="enableDrag()">Drag Portal</button>
-        <button onclick="destroyPortal()">Destroy Portal</button>
-    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('spaceCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Physics constants
+        const G = 6.674 * 10e-2; // Gravitational constant (scaled for simulation)
+        const MIN_PLANET_RADIUS = 10;
+        const MAX_PLANET_RADIUS = 50;
+        const DENSITY = 1; // Density factor for mass calculation
+        const RESTITUTION = 0.8; // Coefficient of restitution (elasticity of collisions)
+        const INFLUENCE_THRESHOLD = 300; // Distance threshold to consider gravitational influence 
+        const SIZE_RATIO_THRESHOLD = 0.625; // Threshold for similar sized planets (5/8 or 62.5%)
+        const DEBRIS_COUNT = 8; // Number of debris particles to create on collision
+        const SIZE_REDUCTION = 0.8; // How much planets shrink after collision (80% of original)
+
+        // Simulation settings
+        const SIMULATION_STEPS = 2000; // Number of steps to simulate
+        const SIMULATION_DT = 0.5; // Time step for simulations
+
+        // Time control
+        let timeScale = 8.0; // Default time scale now 8x
+        
+        // Simulation control
+        let isSimulating = false;
+        let simulationPaths = [];
+        const simulationInfo = document.getElementById('simulationInfo');
+        const simulationProgress = document.getElementById('simulationProgress');
+        
+        // Camera/view controls
+        let cameraX = 0;
+        let cameraY = 0;
+        let zoomLevel = 1;
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        // Mouse tracking
+        let mouseX = 0;
+        let mouseY = 0;
+        let hoveredPlanet = null;
+
+        // Array to store planets and debris
+        let planets = [];
+        let debris = [];
+
+        // Set up time control buttons
+        const timeButtons = document.querySelectorAll('.time-btn');
+        timeButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Update active state
+                timeButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Set time scale
+                timeScale = parseFloat(this.getAttribute('data-speed'));
+            });
+        });
+
+        // Color palette for planets
+        const planetColors = [
+            '#FF5733', '#C70039', '#900C3F', '#581845',
+            '#FFC300', '#DAF7A6', '#FF5733', '#2471A3',
+            '#1ABC9C', '#3498DB', '#E74C3C', '#8E44AD'
+        ];
+
+        // Pre-generate star data for better performance
+        const starCache = new Map();
+        const starDensity = 0.00002; // Significantly reduced star density
+        const gridSize = 1000; // Larger grid size to further reduce stars
+
+        // Convert screen to world coordinates
+        function screenToWorld(screenX, screenY) {
+            return {
+                x: (screenX - canvas.width/2) / zoomLevel + cameraX,
+                y: (screenY - canvas.height/2) / zoomLevel + cameraY
+            };
+        }
+
+        // Convert world to screen coordinates
+        function worldToScreen(worldX, worldY) {
+            return {
+                x: (worldX - cameraX) * zoomLevel + canvas.width/2,
+                y: (worldY - cameraY) * zoomLevel + canvas.height/2
+            };
+        }
+
+        // Check if a new planet would be influenced by existing planets
+        function hasNearbyInfluence(x, y) {
+            for (let planet of planets) {
+                const dx = planet.x - x;
+                const dy = planet.y - y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < INFLUENCE_THRESHOLD) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Debris class for collision effects
+        class Debris {
+            constructor(x, y, vx, vy, color, size, lifetime) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.size = size;
+                this.maxLifetime = lifetime;
+                this.lifetime = lifetime;
+                this.alpha = 1;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.lifetime -= dt;
+                this.alpha = this.lifetime / this.maxLifetime;
+                return this.lifetime > 0;
+            }
+
+            draw(ctx) {
+                const screenPos = worldToScreen(this.x, this.y);
+                const screenSize = this.size * zoomLevel;
+                
+                // Skip if off-screen
+                if (screenPos.x + screenSize < 0 || 
+                    screenPos.x - screenSize > canvas.width ||
+                    screenPos.y + screenSize < 0 || 
+                    screenPos.y - screenSize > canvas.height) {
+                    return;
+                }
+
+                ctx.beginPath();
+                ctx.arc(screenPos.x, screenPos.y, screenSize, 0, Math.PI * 2);
+                ctx.fillStyle = this.color.replace(')', `, ${this.alpha})`).replace('rgb', 'rgba');
+                ctx.fill();
+            }
+        }
+
+        // Planet class
+        class Planet {
+            constructor(x, y, radius) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.mass = Math.PI * radius * radius * DENSITY;
+                
+                // Initialize with zero velocity unless influenced by nearby planets
+                if (hasNearbyInfluence(x, y)) {
+                    this.vx = (Math.random() - 0.5) * 1; // reduced initial velocity
+                    this.vy = (Math.random() - 0.5) * 1;
+                } else {
+                    this.vx = 0;
+                    this.vy = 0;
+                }
+                
+                this.color = planetColors[Math.floor(Math.random() * planetColors.length)];
+                this.trail = [];
+                this.maxTrailLength = 50;
+            }
+
+            clone() {
+                const clone = new Planet(this.x, this.y, this.radius);
+                clone.vx = this.vx;
+                clone.vy = this.vy;
+                clone.mass = this.mass;
+                clone.color = this.color;
+                return clone;
+            }
+
+            update(planets, dt) {
+                // Add current position to trail (reduced frequency at higher time scales)
+                if (Math.random() < 1/Math.max(1, dt*2)) {
+                    this.trail.push({x: this.x, y: this.y});
+                    if (this.trail.length > this.maxTrailLength) {
+                        this.trail.shift();
+                    }
+                }
+
+                // Apply forces from other planets
+                for (let planet of planets) {
+                    if (planet === this) continue;
+                    
+                    // Calculate distance
+                    const dx = planet.x - this.x;
+                    const dy = planet.y - this.y;
+                    const distanceSquared = dx * dx + dy * dy;
+                    const distance = Math.sqrt(distanceSquared);
+                    
+                    // Skip gravitational calculation if planets are colliding
+                    if (distance < this.radius + planet.radius) {
+                        continue;
+                    }
+                    
+                    // Calculate gravitational force (F = G * m1 * m2 / r^2)
+                    const force = G * this.mass * planet.mass / distanceSquared;
+                    const angle = Math.atan2(dy, dx);
+                    
+                    // Apply acceleration (F = ma, so a = F/m) with time scaling
+                    const ax = force * Math.cos(angle) / this.mass;
+                    const ay = force * Math.sin(angle) / this.mass;
+                    
+                    this.vx += ax * dt;
+                    this.vy += ay * dt;
+                }
+
+                // Update position based on velocity (no slowdown in space) with time scaling
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+            }
+
+            draw(ctx) {
+                // Convert planet coordinates to screen coordinates
+                const screenPos = worldToScreen(this.x, this.y);
+                const screenRadius = this.radius * zoomLevel;
+                
+                // Skip drawing if planet is off-screen (with buffer)
+                if (screenPos.x + screenRadius < 0 || 
+                    screenPos.x - screenRadius > canvas.width ||
+                    screenPos.y + screenRadius < 0 || 
+                    screenPos.y - screenRadius > canvas.height) {
+                    return;
+                }
+
+                // Draw trail
+                if (this.trail.length > 1) {
+                    ctx.beginPath();
+                    const firstPoint = worldToScreen(this.trail[0].x, this.trail[0].y);
+                    ctx.moveTo(firstPoint.x, firstPoint.y);
+                    
+                    for (let i = 1; i < this.trail.length; i++) {
+                        const point = worldToScreen(this.trail[i].x, this.trail[i].y);
+                        ctx.lineTo(point.x, point.y);
+                    }
+                    
+                    ctx.strokeStyle = `rgba(${parseInt(this.color.slice(1, 3), 16)}, 
+                                          ${parseInt(this.color.slice(3, 5), 16)}, 
+                                          ${parseInt(this.color.slice(5, 7), 16)}, 
+                                          0.5)`;
+                    ctx.lineWidth = 2 * zoomLevel;
+                    ctx.stroke();
+                }
+
+                // Draw planet
+                ctx.beginPath();
+                ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
+                
+                // Add gradient for more realistic look
+                const gradient = ctx.createRadialGradient(
+                    screenPos.x - screenRadius/3, screenPos.y - screenRadius/3, 0,
+                    screenPos.x, screenPos.y, screenRadius
+                );
+                gradient.addColorStop(0, '#FFFFFF');
+                gradient.addColorStop(0.3, this.color);
+                gradient.addColorStop(1, `rgb(${parseInt(this.color.slice(1, 3), 16) / 2}, 
+                                           ${parseInt(this.color.slice(3, 5), 16) / 2}, 
+                                           ${parseInt(this.color.slice(5, 7), 16) / 2})`);
+                
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // Highlight when hovered
+                if (this === hoveredPlanet) {
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2 * zoomLevel;
+                    ctx.stroke();
+                }
+            }
+
+            isPointInside(worldX, worldY) {
+                const dx = this.x - worldX;
+                const dy = this.y - worldY;
+                return dx * dx + dy * dy <= this.radius * this.radius;
+            }
+        }
+
+        // Create explosion debris
+        function createExplosionDebris(x, y, vx, vy, color, radius) {
+            for (let i = 0; i < DEBRIS_COUNT; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 3;
+                const debrisVx = vx/2 + Math.cos(angle) * speed;
+                const debrisVy = vy/2 + Math.sin(angle) * speed;
+                const size = radius * (0.1 + Math.random() * 0.2);
+                const lifetime = 30 + Math.floor(Math.random() * 60);
+                
+                // Convert hex color to rgba for the debris
+                const r = parseInt(color.slice(1, 3), 16);
+                const g = parseInt(color.slice(3, 5), 16);
+                const b = parseInt(color.slice(5, 7), 16);
+                const rgbaColor = `rgb(${r}, ${g}, ${b})`;
+                
+                debris.push(new Debris(x, y, debrisVx, debrisVy, rgbaColor, size, lifetime));
+            }
+        }
+
+        // Handle collisions between all planets
+        function handleCollisions(dt, simulationPlanets = null) {
+            const planetsArray = simulationPlanets || planets;
+            const planetsToRemove = [];
+            const planetsToAdd = [];
+            
+            for (let i = 0; i < planetsArray.length; i++) {
+                for (let j = i + 1; j < planetsArray.length; j++) {
+                    const planet1 = planetsArray[i];
+                    const planet2 = planetsArray[j];
+                    
+                    // Skip if either planet is already marked for removal
+                    if (planetsToRemove.includes(planet1) || planetsToRemove.includes(planet2)) {
+                        continue;
+                    }
+                    
+                    // Calculate distance between planets
+                    const dx = planet2.x - planet1.x;
+                    const dy = planet2.y - planet1.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Check for collision
+                    if (distance < planet1.radius + planet2.radius) {
+                        // Calculate size ratio to determine collision type
+                        const sizeRatio = Math.min(planet1.radius, planet2.radius) / 
+                                          Math.max(planet1.radius, planet2.radius);
+                        
+                        // Determine collision behavior based on size ratio
+                        if (sizeRatio >= SIZE_RATIO_THRESHOLD) {
+                            // Similar-sized planets: bounce apart with momentum transfer and shrink
+                            
+                            // Calculate normalized collision vector
+                            const nx = dx / distance;
+                            const ny = dy / distance;
+                            
+                            // Calculate relative velocity
+                            const relativeVelocityX = planet2.vx - planet1.vx;
+                            const relativeVelocityY = planet2.vy - planet1.vy;
+                            
+                            // Calculate relative velocity along collision normal
+                            const relativeVelocityAlongNormal = 
+                                relativeVelocityX * nx + relativeVelocityY * ny;
+                            
+                            // Collision impulse
+                            const e = RESTITUTION;
+                            const j = -(1 + e) * relativeVelocityAlongNormal / 
+                                      (1/planet1.mass + 1/planet2.mass);
+                            
+                            // Impulse components
+                            const impulseX = j * nx;
+                            const impulseY = j * ny;
+                            
+                            // Save original velocities for debris
+                            const p1vx = planet1.vx;
+                            const p1vy = planet1.vy;
+                            const p2vx = planet2.vx;
+                            const p2vy = planet2.vy;
+                            
+                            // Apply impulse with extra force for dramatic effect
+                            const boostFactor = 1.5;
+                            planet1.vx = (planet1.vx - impulseX / planet1.mass) * boostFactor;
+                            planet1.vy = (planet1.vy - impulseY / planet1.mass) * boostFactor;
+                            planet2.vx = (planet2.vx + impulseX / planet2.mass) * boostFactor;
+                            planet2.vy = (planet2.vy + impulseY / planet2.mass) * boostFactor;
+                            
+                            // Shrink both planets
+                            planet1.radius *= SIZE_REDUCTION;
+                            planet2.radius *= SIZE_REDUCTION;
+                            
+                            // Recalculate mass
+                            planet1.mass = Math.PI * planet1.radius * planet1.radius * DENSITY;
+                            planet2.mass = Math.PI * planet2.radius * planet2.radius * DENSITY;
+                            
+                            // Move planets apart to prevent continuous collisions
+                            const overlap = (planet1.radius + planet2.radius - distance) * 1.1;
+                            planet1.x -= nx * overlap / 2;
+                            planet1.y -= ny * overlap / 2;
+                            planet2.x += nx * overlap / 2;
+                            planet2.y += ny * overlap / 2;
+                            
+                            // Create explosion debris at collision point (only in real simulation)
+                            if (!simulationPlanets) {
+                                const collisionX = planet1.x + dx * planet1.radius / distance;
+                                const collisionY = planet1.y + dy * planet1.radius / distance;
+                                
+                                createExplosionDebris(collisionX, collisionY, 
+                                                    (p1vx + p2vx) / 2, (p1vy + p2vy) / 2,
+                                                    planet1.color, Math.min(planet1.radius, planet2.radius) / 3);
+                            }
+                            
+                            // Remove planets if they're too small
+                            if (planet1.radius < MIN_PLANET_RADIUS / 2) {
+                                planetsToRemove.push(planet1);
+                                if (!simulationPlanets) {
+                                    createExplosionDebris(planet1.x, planet1.y, p1vx, p1vy, 
+                                                      planet1.color, planet1.radius);
+                                }
+                            }
+                            
+                            if (planet2.radius < MIN_PLANET_RADIUS / 2) {
+                                planetsToRemove.push(planet2);
+                                if (!simulationPlanets) {
+                                    createExplosionDebris(planet2.x, planet2.y, p2vx, p2vy, 
+                                                      planet2.color, planet2.radius);
+                                }
+                            }
+                        } else {
+                            // Different-sized planets: smaller one explodes, larger one absorbs momentum
+                            
+                            // Determine which planet is smaller
+                            const smallerPlanet = planet1.radius < planet2.radius ? planet1 : planet2;
+                            const largerPlanet = planet1.radius < planet2.radius ? planet2 : planet1;
+                            
+                            // Transfer momentum from smaller to larger planet
+                            // p = mv, so v_change = m_small * v_small / m_large
+                            const momentumRatio = smallerPlanet.mass / largerPlanet.mass;
+                            largerPlanet.vx += smallerPlanet.vx * momentumRatio * 0.8;
+                            largerPlanet.vy += smallerPlanet.vy * momentumRatio * 0.8;
+                            
+                            // Create explosion debris for smaller planet (only in real simulation)
+                            if (!simulationPlanets) {
+                                createExplosionDebris(smallerPlanet.x, smallerPlanet.y, 
+                                                    smallerPlanet.vx, smallerPlanet.vy,
+                                                    smallerPlanet.color, smallerPlanet.radius);
+                            }
+                            
+                            // Mark smaller planet for removal
+                            planetsToRemove.push(smallerPlanet);
+                        }
+                    }
+                }
+            }
+            
+            // Remove planets marked for deletion
+            if (planetsToRemove.length > 0) {
+                const filteredPlanets = planetsArray.filter(planet => !planetsToRemove.includes(planet));
+                
+                if (simulationPlanets) {
+                    return filteredPlanets;
+                } else {
+                    planets = filteredPlanets;
+                }
+            }
+            
+            // Add new planets (if any were created)
+            if (!simulationPlanets && planetsToAdd.length > 0) {
+                planets = planets.concat(planetsToAdd);
+            }
+            
+            return simulationPlanets || planets;
+        }
+
+        // Simulate planet paths
+        async function simulatePaths() {
+            if (isSimulating || planets.length === 0) return;
+            
+            isSimulating = true;
+            simulationInfo.style.display = 'block';
+            
+            // Clone current planets for simulation
+            let simulationPlanets = planets.map(planet => planet.clone());
+            simulationPaths = planets.map(() => []);
+            
+            // Run simulation in chunks to avoid freezing the UI
+            const chunkSize = 20;
+            const totalSteps = SIMULATION_STEPS;
+            
+            for (let step = 0; step < totalSteps; step += chunkSize) {
+                // Update progress indicator
+                const progress = Math.floor((step / totalSteps) * 100);
+                simulationProgress.textContent = `${progress}%`;
+                
+                // Run a chunk of simulation steps
+                for (let i = 0; i < chunkSize && step + i < totalSteps; i++) {
+                    // Store current positions
+                    for (let j = 0; j < simulationPlanets.length; j++) {
+                        simulationPaths[j].push({
+                            x: simulationPlanets[j].x,
+                            y: simulationPlanets[j].y
+                        });
+                    }
+                    
+                    // Update planet positions
+                    for (let planet of simulationPlanets) {
+                        planet.update(simulationPlanets, SIMULATION_DT);
+                    }
+                    
+                    // Handle collisions
+                    simulationPlanets = handleCollisions(SIMULATION_DT, simulationPlanets);
+                    
+                    // If no planets left, end simulation
+                    if (simulationPlanets.length === 0) {
+                        break;
+                    }
+                }
+                
+                // Allow UI to update
+                await new Promise(resolve => setTimeout(resolve, 0));
+                
+                // If no planets left, end simulation
+                if (simulationPlanets.length === 0) {
+                    break;
+                }
+            }
+            
+            // Finalize progress
+            simulationProgress.textContent = "100%";
+            
+            // Hide info panel after a short delay
+            setTimeout(() => {
+                simulationInfo.style.display = 'none';
+                isSimulating = false;
+            }, 1000);
+        }
+
+        // Create initial planets
+        function createRandomPlanet() {
+            const radius = MIN_PLANET_RADIUS + Math.random() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
+            const x = (Math.random() - 0.5) * canvas.width;
+            const y = (Math.random() - 0.5) * canvas.height;
+            return new Planet(x, y, radius);
+        }
+
+        // Initialize with a few planets
+        for (let i = 0; i < 5; i++) {
+            planets.push(createRandomPlanet());
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Track mouse position
+        canvas.addEventListener('mousemove', function(event) {
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+            const worldCoords = screenToWorld(mouseX, mouseY);
+            
+            // Update camera if dragging
+            if (isDragging) {
+                const dx = (mouseX - lastMouseX) / zoomLevel;
+                const dy = (mouseY - lastMouseY) / zoomLevel;
+                cameraX -= dx;
+                cameraY -= dy;
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
+            }
+            
+            // Check for hovered planet
+            hoveredPlanet = null;
+            for (let planet of planets) {
+                if (planet.isPointInside(worldCoords.x, worldCoords.y)) {
+                    hoveredPlanet = planet;
+                    break;
+                }
+            }
+        });
+
+        // Handle mouse down for dragging
+        canvas.addEventListener('mousedown', function(event) {
+            if (!hoveredPlanet) { // Only start dragging if not clicking on a planet
+                isDragging = true;
+                lastMouseX = event.clientX;
+                lastMouseY = event.clientY;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        // Handle mouse up for dragging
+        window.addEventListener('mouseup', function() {
+            isDragging = false;
+            canvas.style.cursor = 'default';
+        });
+
+        // Handle zoom with mouse wheel
+        canvas.addEventListener('wheel', function(event) {
+            event.preventDefault();
+            
+            // Get mouse position in world coordinates before zoom
+            const mouseWorldBefore = screenToWorld(mouseX, mouseY);
+            
+            // Apply zoom factor
+            const zoomFactor = event.deltaY < 0 ? 1.1 : 0.9;
+            zoomLevel *= zoomFactor;
+            
+            // Limit zoom level (increased max zoom out)
+            zoomLevel = Math.max(0.01, Math.min(zoomLevel, 10));
+            
+            // Get mouse position in world coordinates after zoom
+            const mouseWorldAfter = screenToWorld(mouseX, mouseY);
+            
+            // Adjust camera to keep mouse position fixed over same world position
+            cameraX += (mouseWorldBefore.x - mouseWorldAfter.x);
+            cameraY += (mouseWorldBefore.y - mouseWorldAfter.y);
+        });
+
+        // Handle key presses
+        document.addEventListener('keydown', function(event) {
+            // 'N' key to create new planet
+            if (event.key === 'n' || event.key === 'N') {
+                const worldCoords = screenToWorld(mouseX, mouseY);
+                const radius = MIN_PLANET_RADIUS + Math.random() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
+                planets.push(new Planet(worldCoords.x, worldCoords.y, radius));
+                
+                // Clear simulation paths when adding new planets
+                simulationPaths = [];
+            }
+            
+            // 'D' key to delete hovered planet
+            if ((event.key === 'd' || event.key === 'D') && hoveredPlanet) {
+                // Create explosion debris when manually deleting
+                createExplosionDebris(hoveredPlanet.x, hoveredPlanet.y, 
+                                    hoveredPlanet.vx, hoveredPlanet.vy,
+                                    hoveredPlanet.color, hoveredPlanet.radius);
+                
+                planets = planets.filter(planet => planet !== hoveredPlanet);
+                hoveredPlanet = null;
+                
+                // Clear simulation paths when removing planets
+                simulationPaths = [];
+            }
+            
+            // 'Q' key to simulate planet paths
+            if (event.key === 'q' || event.key === 'Q') {
+                simulatePaths();
+            }
+        });
+
+        // Seeded random function for star generation
+        function seededRandom(x, y) {
+            const seed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+            return seed - Math.floor(seed);
+        }
+
+        // Generate star data for a grid cell and cache it
+        function generateStarsForCell(cellX, cellY) {
+            const cellKey = `${cellX},${cellY}`;
+            
+            if (starCache.has(cellKey)) {
+                return starCache.get(cellKey);
+            }
+            
+            const stars = [];
+            // Determine number of stars in this cell based on density - much less than before
+            const numStars = Math.floor(gridSize * gridSize * starDensity);
+            
+            for (let i = 0; i < numStars; i++) {
+                // Deterministic star position based on cell and index
+                const x = cellX * gridSize + gridSize * seededRandom(cellX, i);
+                const y = cellY * gridSize + gridSize * seededRandom(i, cellY);
+                
+                // Vary star size slightly
+                const size = 1.5 * (0.5 + seededRandom(x, y));
+                
+                // Vary star brightness
+                const alpha = 0.5 + 0.5 * seededRandom(y, x);
+                
+                stars.push({x, y, size, alpha});
+            }
+            
+            starCache.set(cellKey, stars);
+            return stars;
+        }
+
+        // Draw stars background that moves with camera - optimized
+        function drawStars() {
+            // Calculate visible grid cells with more restrictive bounds
+            const visibleWidth = canvas.width / zoomLevel;
+            const visibleHeight = canvas.height / zoomLevel;
+            
+            const startCellX = Math.floor((cameraX - visibleWidth/2) / gridSize);
+            const endCellX = Math.ceil((cameraX + visibleWidth/2) / gridSize);
+            const startCellY = Math.floor((cameraY - visibleHeight/2) / gridSize);
+            const endCellY = Math.ceil((cameraY + visibleHeight/2) / gridSize);
+            
+            // Apply throttling when zoomed out far
+            const skipFactor = Math.max(1, Math.floor(10 / zoomLevel));
+            
+            // Generate stars for visible grid cells
+            for (let cellX = startCellX; cellX <= endCellX; cellX++) {
+                for (let cellY = startCellY; cellY <= endCellY; cellY++) {
+                    // Skip cells based on zoom level for performance
+                    if ((cellX + cellY) % skipFactor !== 0 && zoomLevel < 0.2) continue;
+                    
+                    const stars = generateStarsForCell(cellX, cellY);
+                    
+                    // Draw stars from this cell
+                    for (const star of stars) {
+                        // Map to screen coordinates
+                        const screenPos = worldToScreen(star.x, star.y);
+                        
+                        // Only draw if on screen
+                        if (screenPos.x >= 0 && screenPos.x <= canvas.width &&
+                            screenPos.y >= 0 && screenPos.y <= canvas.height) {
+                            
+                            // Draw star
+                            ctx.beginPath();
+                            ctx.arc(screenPos.x, screenPos.y, star.size * zoomLevel, 0, Math.PI * 2);
+                            ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw simulated paths
+        function drawSimulationPaths() {
+            if (simulationPaths.length === 0 || simulationPaths[0].length === 0) return;
+            
+            // Draw paths for each planet
+            for (let i = 0; i < Math.min(planets.length, simulationPaths.length); i++) {
+                const planet = planets[i];
+                const path = simulationPaths[i];
+                
+                if (path.length < 2) continue;
+                
+                ctx.beginPath();
+                
+                // Start at the current planet position
+                const startPos = worldToScreen(planet.x, planet.y);
+                ctx.moveTo(startPos.x, startPos.y);
+                
+                // Draw dotted line for the predicted path
+                ctx.setLineDash([5, 5]);
+                
+                // Draw the path with gradient opacity
+                for (let j = 0; j < path.length; j++) {
+                    const point = worldToScreen(path[j].x, path[j].y);
+                    ctx.lineTo(point.x, point.y);
+                }
+                
+                // Path color based on planet with reduced opacity
+                const r = parseInt(planet.color.slice(1, 3), 16);
+                const g = parseInt(planet.color.slice(3, 5), 16);
+                const b = parseInt(planet.color.slice(5, 7), 16);
+                
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
+                ctx.lineWidth = 1.5 * zoomLevel;
+                ctx.stroke();
+                
+                // Reset line dash
+                ctx.setLineDash([]);
+            }
+        }
+
+        // Animation variables
+        let lastTime = 0;
+
+        // Animation loop with time control
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+            
+            // Calculate delta time (in seconds)
+            const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1); // Cap dt at 0.1s to prevent huge jumps
+            lastTime = currentTime;
+            
+            // Apply time scale to delta time
+            const dt = deltaTime * timeScale;
+            
+            // Clear canvas
+            ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw stars in background
+            drawStars();
+            
+            // Draw simulation paths if available
+            drawSimulationPaths();
+            
+            // Skip physics updates if simulating
+            if (!isSimulating) {
+                // Handle collisions
+                handleCollisions(dt);
+                
+                // Update and draw planets
+                for (let planet of planets) {
+                    planet.update(planets, dt);
+                    planet.draw(ctx);
+                }
+                
+                // Update and draw debris
+                debris = debris.filter(particle => {
+                    const alive = particle.update(dt);
+                    if (alive) {
+                        particle.draw(ctx);
+                    }
+                    return alive;
+                });
+            } else {
+                // Just draw planets without updating
+                for (let planet of planets) {
+                    planet.draw(ctx);
+                }
+            }
+        }
+
+        // Start animation
+        animate(0);
+    </script>
 </body>
 </html>
