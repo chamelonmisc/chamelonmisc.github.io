@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> 
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2D Space Simulator</title>
@@ -210,6 +210,194 @@
                               linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: 20px 20px;
         }
+        /* Pause Menu Styles */
+        .pause-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .pause-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .pause-menu {
+            background-color: rgba(15, 22, 36, 0.95);
+            border-radius: 12px;
+            padding: 40px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.3);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: white;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .pause-overlay.active .pause-menu {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .pause-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 15px;
+        }
+        .pause-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 0;
+            color: #60a5fa;
+            letter-spacing: 1px;
+        }
+        .pause-subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            margin: 5px 0 25px 0;
+            font-size: 16px;
+        }
+        .keybind-section {
+            margin-bottom: 20px;
+        }
+        .keybind-title {
+            font-size: 18px;
+            color: #60a5fa;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .keybind-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .keybind-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: rgba(30, 41, 59, 0.7);
+            border-radius: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .keybind-item:hover {
+            background-color: rgba(30, 41, 59, 0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .keybind-item.listening {
+            background-color: rgba(59, 130, 246, 0.2);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+        }
+        .keybind-action {
+            color: #f8fafc;
+        }
+        .keybind-key {
+            background-color: rgba(20, 30, 45, 0.8);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-family: monospace;
+            min-width: 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-transform: uppercase;
+        }
+        .pause-menu-footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .pause-btn {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pause-btn.primary {
+            background-color: #3b82f6;
+        }
+        .pause-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .pause-btn.primary:hover {
+            background-color: #60a5fa;
+        }
+        .pause-btn-icon {
+            font-size: 18px;
+        }
+        .pause-info {
+            margin-top: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            text-align: center;
+        }
+        .pause-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(15, 22, 36, 0.8);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 30px;
+            display: none;
+            font-weight: 600;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        .pause-indicator.active {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pause-indicator-icon {
+            width: 8px;
+            height: 12px;
+            background-color: #60a5fa;
+            margin-right: 2px;
+            border-radius: 2px;
+        }
+        .pause-indicator-text {
+            color: #60a5fa;
+        }
+        @media (max-width: 768px) {
+            .keybind-grid {
+                grid-template-columns: 1fr;
+            }
+            .pause-menu {
+                padding: 20px;
+            }
+            .pause-title {
+                font-size: 24px;
+            }
+        }
         @media (max-width: 600px) {
             .controls, .time-controls, .simulation-info {
                 font-size: 12px;
@@ -234,6 +422,7 @@
         <p>Hover over a planet and press <strong>D</strong> to delete it</p>
         <p>Press <strong>Q</strong> to simulate planet paths</p>
         <p>Press <strong>E</strong> to edit selected planet</p>
+        <p>Press <strong>P</strong> to pause and configure</p>
         <p><strong>Mouse wheel</strong> to zoom in/out</p>
         <p><strong>Drag</strong> to pan the view</p>
     </div>
@@ -249,6 +438,69 @@
         <div class="time-btn" data-speed="32">1x</div>
         <div class="time-btn" data-speed="64">2x</div>
         <div class="time-btn" data-speed="128">3x</div>
+    </div>
+
+    <div class="pause-indicator" id="pauseIndicator">
+        <div class="pause-indicator-icon"></div>
+        <div class="pause-indicator-icon"></div>
+        <div class="pause-indicator-text">PAUSED</div>
+    </div>
+
+    <div class="pause-overlay" id="pauseOverlay">
+        <div class="pause-menu">
+            <div class="pause-header">
+                <h1 class="pause-title">Space Simulator</h1>
+            </div>
+            
+            <p class="pause-subtitle">Simulation paused. Configure your controls below.</p>
+            
+            <div class="keybind-section">
+                <h2 class="keybind-title">Planet Controls</h2>
+                <div class="keybind-grid">
+                    <div class="keybind-item" data-action="createPlanet">
+                        <div class="keybind-action">Create Planet</div>
+                        <div class="keybind-key" id="createPlanetKey">N</div>
+                    </div>
+                    <div class="keybind-item" data-action="deletePlanet">
+                        <div class="keybind-action">Delete Planet</div>
+                        <div class="keybind-key" id="deletePlanetKey">D</div>
+                    </div>
+                    <div class="keybind-item" data-action="editPlanet">
+                        <div class="keybind-action">Edit Planet</div>
+                        <div class="keybind-key" id="editPlanetKey">E</div>
+                    </div>
+                    <div class="keybind-item" data-action="simulatePaths">
+                        <div class="keybind-action">Simulate Paths</div>
+                        <div class="keybind-key" id="simulatePathsKey">Q</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="keybind-section">
+                <h2 class="keybind-title">System Controls</h2>
+                <div class="keybind-grid">
+                    <div class="keybind-item" data-action="togglePause">
+                        <div class="keybind-action">Pause/Resume</div>
+                        <div class="keybind-key" id="togglePauseKey">P</div>
+                    </div>
+                    <div class="keybind-item" data-action="resetCamera">
+                        <div class="keybind-action">Reset Camera</div>
+                        <div class="keybind-key" id="resetCameraKey">R</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pause-menu-footer">
+                <button class="pause-btn" id="resetKeysBtn">
+                    <span class="pause-btn-icon">↺</span> Reset Keys
+                </button>
+                <button class="pause-btn primary" id="resumeBtn">
+                    <span class="pause-btn-icon">▶</span> Resume
+                </button>
+            </div>
+            
+            <p class="pause-info">Click on any control to rebind it</p>
+        </div>
     </div>
 
     <div class="planet-editor" id="planetEditor">
@@ -334,6 +586,149 @@
         let isPaused = false;
         let previousTimeScale = timeScale;
         
+        // Pause Menu
+        const pauseOverlay = document.getElementById('pauseOverlay');
+        const pauseIndicator = document.getElementById('pauseIndicator');
+        const resumeBtn = document.getElementById('resumeBtn');
+        const resetKeysBtn = document.getElementById('resetKeysBtn');
+        const keybindItems = document.querySelectorAll('.keybind-item');
+        let currentListeningElement = null;
+        
+        // Keybindings
+        let keybindings = {
+            createPlanet: 'n',
+            deletePlanet: 'd',
+            editPlanet: 'e',
+            simulatePaths: 'q',
+            togglePause: 'p',
+            resetCamera: 'r'
+        };
+        
+        // Load keybindings from localStorage if available
+        function loadKeybindings() {
+            const savedBindings = localStorage.getItem('spaceSimKeybindings');
+            if (savedBindings) {
+                try {
+                    keybindings = JSON.parse(savedBindings);
+                    updateKeybindDisplay();
+                } catch (e) {
+                    console.error('Error loading keybindings:', e);
+                }
+            }
+        }
+        
+        // Save keybindings to localStorage
+        function saveKeybindings() {
+            localStorage.setItem('spaceSimKeybindings', JSON.stringify(keybindings));
+        }
+        
+        // Update keybind display
+        function updateKeybindDisplay() {
+            for (const [action, key] of Object.entries(keybindings)) {
+                const keyElement = document.getElementById(`${action}Key`);
+                if (keyElement) {
+                    keyElement.textContent = key.toUpperCase();
+                }
+            }
+        }
+        
+        // Reset keybindings to default
+        function resetKeybindings() {
+            keybindings = {
+                createPlanet: 'n',
+                deletePlanet: 'd',
+                editPlanet: 'e',
+                simulatePaths: 'q',
+                togglePause: 'p',
+                resetCamera: 'r'
+            };
+            updateKeybindDisplay();
+            saveKeybindings();
+        }
+        
+        // Toggle pause state
+        function togglePause() {
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+                previousTimeScale = timeScale;
+                timeScale = 0;
+                pauseOverlay.classList.add('active');
+                pauseIndicator.classList.add('active');
+            } else {
+                timeScale = previousTimeScale;
+                pauseOverlay.classList.remove('active');
+                pauseIndicator.classList.remove('active');
+                
+                // If we were listening for a key, cancel it
+                if (currentListeningElement) {
+                    currentListeningElement.classList.remove('listening');
+                    currentListeningElement = null;
+                }
+            }
+        }
+        
+        // Setup pause menu event listeners
+        resumeBtn.addEventListener('click', togglePause);
+        
+        resetKeysBtn.addEventListener('click', resetKeybindings);
+        
+        // Setup keybind customization
+        keybindItems.forEach(item => {
+            item.addEventListener('click', function() {
+                const action = this.getAttribute('data-action');
+                const keyElement = this.querySelector('.keybind-key');
+                
+                // Cancel any current listening
+                if (currentListeningElement) {
+                    currentListeningElement.classList.remove('listening');
+                }
+                
+                // Set this element as listening
+                this.classList.add('listening');
+                currentListeningElement = this;
+                keyElement.textContent = '...';
+                
+                // Create one-time event listener for the next keypress
+                const handleKeyPress = function(e) {
+                    e.preventDefault();
+                    
+                    // Get the key (lowercase for consistency)
+                    let newKey = e.key.toLowerCase();
+                    
+                    // Special case for Escape key
+                    if (newKey === 'escape') {
+                        // Cancel rebinding
+                        keyElement.textContent = keybindings[action].toUpperCase();
+                        item.classList.remove('listening');
+                        currentListeningElement = null;
+                        document.removeEventListener('keydown', handleKeyPress);
+                        return;
+                    }
+                    
+                    // For special keys, use more readable names
+                    if (newKey === ' ') newKey = 'space';
+                    
+                    // Update the keybinding
+                    keybindings[action] = newKey;
+                    keyElement.textContent = newKey.toUpperCase();
+                    
+                    // Save keybindings
+                    saveKeybindings();
+                    
+                    // Reset listening state
+                    item.classList.remove('listening');
+                    currentListeningElement = null;
+                    
+                    // Remove this temporary event listener
+                    document.removeEventListener('keydown', handleKeyPress);
+                };
+                
+                document.addEventListener('keydown', handleKeyPress);
+            });
+        let debris = [];
+        });
+        
         // Simulation control
         let isSimulating = false;
         let simulationPaths = [];
@@ -360,7 +755,6 @@
         
         // Array to store planets and debris
         let planets = [];
-        let debris = [];
 
         // Get editor elements
         const planetEditor = document.getElementById('planetEditor');
@@ -414,6 +808,9 @@
             isEditorOpen = true;
             selectedPlanet = planet;
             
+            // Show paused indicator
+            pauseIndicator.classList.add('active');
+            
             // Set editor values
             planetSize.value = planet.radius;
             planetMass.value = planet.massMultiplier || 1;
@@ -448,6 +845,9 @@
             isEditorDragging = false;
             selectedPlanet = null;
             dragPlanetBtn.classList.remove('active');
+            
+            // Hide paused indicator
+            pauseIndicator.classList.remove('active');
             
             // Hide the editor
             planetEditor.style.display = 'none';
@@ -495,6 +895,12 @@
             velocityArrow.style.transform = `rotate(${directionValue.value}deg)`;
             velocityArrow.style.borderLeftWidth = `${arrowLength}px`;
             velocityArrow.style.borderLeftColor = selectedPlanet.color;
+        }
+        
+        function resetCamera() {
+            cameraX = 0;
+            cameraY = 0;
+            zoomLevel = 1;
         }
         
         // Set up editor event listeners
@@ -958,7 +1364,7 @@
 
         // Simulate planet paths
         async function simulatePaths() {
-            if (isSimulating || planets.length === 0 || isEditorOpen) return;
+            if (isSimulating || planets.length === 0 || isEditorOpen || isPaused) return;
             
             isSimulating = true;
             simulationInfo.style.display = 'block';
@@ -1129,19 +1535,30 @@
             cameraY += (mouseWorldBefore.y - mouseWorldAfter.y);
         });
 
-        // Handle key presses
+        // Handle key presses with custom keybindings
         document.addEventListener('keydown', function(event) {
-            // Ignore key events when in editor mode
-            if (isEditorOpen && event.key !== 'Escape') return;
+            const key = event.key.toLowerCase();
+            
+            // Ignore key events when in editor mode (except Escape)
+            if (isEditorOpen && key !== 'escape') return;
             
             // Escape key to close editor
-            if (event.key === 'Escape' && isEditorOpen) {
+            if (key === 'escape' && isEditorOpen) {
                 closePlanetEditor();
                 return;
             }
             
-            // 'N' key to create new planet
-            if (event.key === 'n' || event.key === 'N') {
+            // Check for pause toggle
+            if (key === keybindings.togglePause) {
+                togglePause();
+                return;
+            }
+            
+            // If paused and not in editor mode, only allow resume
+            if (isPaused && !isEditorOpen) return;
+            
+            // Create new planet
+            if (key === keybindings.createPlanet) {
                 const worldCoords = screenToWorld(mouseX, mouseY);
                 const radius = MIN_PLANET_RADIUS + Math.random() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
                 planets.push(new Planet(worldCoords.x, worldCoords.y, radius));
@@ -1150,8 +1567,8 @@
                 simulationPaths = [];
             }
             
-            // 'D' key to delete hovered planet
-            if ((event.key === 'd' || event.key === 'D') && hoveredPlanet) {
+            // Delete hovered planet
+            if (key === keybindings.deletePlanet && hoveredPlanet) {
                 // Create explosion debris when manually deleting
                 createExplosionDebris(hoveredPlanet.x, hoveredPlanet.y, 
                                     hoveredPlanet.vx, hoveredPlanet.vy,
@@ -1164,14 +1581,19 @@
                 simulationPaths = [];
             }
             
-            // 'Q' key to simulate planet paths
-            if (event.key === 'q' || event.key === 'Q') {
+            // Simulate planet paths
+            if (key === keybindings.simulatePaths) {
                 simulatePaths();
             }
             
-            // 'E' key to edit selected planet
-            if ((event.key === 'e' || event.key === 'E') && hoveredPlanet) {
+            // Edit selected planet
+            if (key === keybindings.editPlanet && hoveredPlanet) {
                 openPlanetEditor(hoveredPlanet);
+            }
+            
+            // Reset camera
+            if (key === keybindings.resetCamera) {
+                resetCamera();
             }
         });
 
@@ -1349,7 +1771,8 @@
             }
         }
 
-        // Start animation
+        // Load keybindings and start animation
+        loadKeybindings();
         animate(0);
     </script>
 </body>
