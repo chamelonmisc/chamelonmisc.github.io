@@ -1521,19 +1521,21 @@ function resetSimulation() {
     }
 
 
-        // Create initial planets
-function createRandomPlanet() {
-    const radius = MIN_PLANET_RADIUS + seededRandom() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
-    const x = (seededRandom() - 0.5) * canvas.width;
-    const y = (seededRandom() - 0.5) * canvas.height;
-    return new Planet(x, y, radius);
-}
+        // Create random planet using seeded random
+        function createRandomPlanet() {
+            const radius = MIN_PLANET_RADIUS + customRandom() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
+            const x = (customRandom() - 0.5) * canvas.width;
+            const y = (customRandom() - 0.5) * canvas.height;
+            return new Planet(x, y, radius);
+        }
 
-        // Initialize the random generator at startup
+        // Initialize the simulation
         initSeededRandom(DEFAULT_SEED);
-        
-        // Initialize with a few planets
-        resetSimulation();
+        let planets = [];
+        let debris = [];
+        for (let i = 0; i < 5; i++) {
+            planets.push(createRandomPlanet());
+        }
 
         // Handle window resize
         window.addEventListener('resize', function() {
@@ -1688,31 +1690,29 @@ function createRandomPlanet() {
                 openPlanetEditor(hoveredPlanet);
             }
 
-                // Show current seed
-    if (key === keybindings.showSeed) {
-        const saveCode = generateSaveCode();
-        alert(`Current seed: ${currentSeed}\nSave code:\n${saveCode}`);
-        return;
-    }
-    
-    // Input new seed
-    if (key === keybindings.inputSeed) {
-        const input = prompt("Enter seed number or save code:");
-        if (input) {
-            if (/^\d+$/.test(input)) {
-                // Numeric seed
-                initSeededRandom(parseInt(input));
-                resetSimulation();
-            } else {
-                // Try to parse as save code
-                if (!loadFromSaveCode(input)) {
-                    alert("Invalid save code!");
-                }
+            // Show current seed (L key)
+            if (key === keybindings.showSeed) {
+                const saveCode = generateSaveCode();
+                alert(`Current seed: ${currentSeed}\nSave code:\n${saveCode}`);
+                return;
             }
-        }
-        return;
-    }
-});
+            
+            // Input new seed (I key)
+            if (key === keybindings.inputSeed) {
+                const input = prompt("Enter seed number or save code:");
+                if (input) {
+                    if (/^\d+$/.test(input)) {
+                        initSeededRandom(parseInt(input));
+                        resetSimulation();
+                    } else {
+                        if (!loadFromSaveCode(input)) {
+                            alert("Invalid save code!");
+                        }
+                    }
+                }
+                return;
+            }
+        });
             
             // Reset camera
             if (key === keybindings.resetCamera) {
