@@ -1689,6 +1689,32 @@ function createRandomPlanet() {
             if (key === keybindings.editPlanet && hoveredPlanet) {
                 openPlanetEditor(hoveredPlanet);
             }
+
+                // Show current seed
+    if (key === keybindings.showSeed) {
+        const saveCode = generateSaveCode();
+        alert(`Current seed: ${currentSeed}\nSave code:\n${saveCode}`);
+        return;
+    }
+    
+    // Input new seed
+    if (key === keybindings.inputSeed) {
+        const input = prompt("Enter seed number or save code:");
+        if (input) {
+            if (/^\d+$/.test(input)) {
+                // Numeric seed
+                initSeededRandom(parseInt(input));
+                resetSimulation();
+            } else {
+                // Try to parse as save code
+                if (!loadFromSaveCode(input)) {
+                    alert("Invalid save code!");
+                }
+            }
+        }
+        return;
+    }
+});
             
             // Reset camera
             if (key === keybindings.resetCamera) {
