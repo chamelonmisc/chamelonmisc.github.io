@@ -755,6 +755,7 @@
         
         // Array to store planets and debris
         let planets = [];
+        let debris = [];
 
         // Get editor elements
         const planetEditor = document.getElementById('planetEditor');
@@ -1017,18 +1018,18 @@
             }
         }
 
-        // Planet class
+        // Planet class with improved collision handling
         class Planet {
             constructor(x, y, radius) {
                 this.x = x;
                 this.y = y;
                 this.radius = radius;
-                this.mass = Math.PI * radius * radius * DENSITY;
                 this.massMultiplier = 1; // Default mass multiplier
+                this.mass = Math.PI * radius * radius * DENSITY * this.massMultiplier;
                 
                 // Initialize with zero velocity unless influenced by nearby planets
                 if (hasNearbyInfluence(x, y)) {
-                    this.vx = (Math.random() - 0.5) * 1; // reduced initial velocity
+                    this.vx = (Math.random() - 0.5) * 1;
                     this.vy = (Math.random() - 0.5) * 1;
                 } else {
                     this.vx = 0;
@@ -1208,11 +1209,9 @@
             }
         }
 
-        // Handle collisions between all planets
         function handleCollisions(dt, simulationPlanets = null) {
             const planetsArray = simulationPlanets || planets;
             const planetsToRemove = [];
-            const planetsToAdd = [];
             
             for (let i = 0; i < planetsArray.length; i++) {
                 for (let j = i + 1; j < planetsArray.length; j++) {
@@ -1228,115 +1227,100 @@
                     const dx = planet2.x - planet1.x;
                     const dy = planet2.y - planet1.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
+                    const minDistance = planet1.radius + planet2.radius;
                     
                     // Check for collision
-                    if (distance < planet1.radius + planet2.radius) {
+                    if (distance < minDistance) {
                         // Calculate size ratio to determine collision type
                         const sizeRatio = Math.min(planet1.radius, planet2.radius) / 
-                                          Math.max(planet1.radius, planet2.radius);
+                                        Math.max(planet1.radius, planet2.radius);
                         
-                        // Determine collision behavior based on size ratio
+                        // Normalized collision vector
+                        const nx = dx / distance;
+                        const ny = dy / distance;
+                        
+                        // Relative velocity
+                        const relativeVelocityX = planet2.vx - planet1.vx;
+                        const relativeVelocityY = planet2.vy - planet1.vy;
+                        
+                        // Relative velocity along collision normal
+                        const relativeVelocityAlongNormal = relativeVelocityX * nx + relativeVelocityY * ny;
+                        
+                        // Do not resolve if velocities are separating
+                        if (relativeVelocityAlongNormal > 0) continue;
+                        
+                        // Calculate impulse scalar
+                        const restitution = RESTITUTION;
+                        const j = -(1 + restitution) * relativeVelocityAlongNormal;
+                        const impulse = j / (1/planet1.mass + 1/planet2.mass);
+                        
+                        // Apply impulse
+                        const impulseX = impulse * nx;
+                        const impulseY = impulse * ny;
+                        
+                        // Save original velocities for debris
+                        const p1vx = planet1.vx;
+                        const p1vy = planet1.vy;
+                        const p2vx = planet2.vx;
+                        const p2vy = planet2.vy;
+                        
+                        // Update velocities
+                        planet1.vx -= impulseX / planet1.mass;
+                        planet1.vy -= impulseY / planet1.mass;
+                        planet2.vx += impulseX / planet2.mass;
+                        planet2.vy += impulseY / planet2.mass;
+                        
+                        // Move planets apart to prevent sticking
+                        const overlap = (minDistance - distance) * 0.5;
+                        planet1.x -= overlap * nx;
+                        planet1.y -= overlap * ny;
+                        planet2.x += overlap * nx;
+                        planet2.y += overlap * ny;
+                        
+                        // Handle different collision types based on size ratio
                         if (sizeRatio >= SIZE_RATIO_THRESHOLD) {
-                            // Similar-sized planets: bounce apart with momentum transfer and shrink
-                            
-                            // Calculate normalized collision vector
-                            const nx = dx / distance;
-                            const ny = dy / distance;
-                            
-                            // Calculate relative velocity
-                            const relativeVelocityX = planet2.vx - planet1.vx;
-                            const relativeVelocityY = planet2.vy - planet1.vy;
-                            
-                            // Calculate relative velocity along collision normal
-                            const relativeVelocityAlongNormal = 
-                                relativeVelocityX * nx + relativeVelocityY * ny;
-                            
-                            // Collision impulse
-                            const e = RESTITUTION;
-                            const j = -(1 + e) * relativeVelocityAlongNormal / 
-                                      (1/planet1.mass + 1/planet2.mass);
-                            
-                            // Impulse components
-                            const impulseX = j * nx;
-                            const impulseY = j * ny;
-                            
-                            // Save original velocities for debris
-                            const p1vx = planet1.vx;
-                            const p1vy = planet1.vy;
-                            const p2vx = planet2.vx;
-                            const p2vy = planet2.vy;
-                            
-                            // Apply impulse with extra force for dramatic effect
-                            const boostFactor = 1.5;
-                            planet1.vx = (planet1.vx - impulseX / planet1.mass) * boostFactor;
-                            planet1.vy = (planet1.vy - impulseY / planet1.mass) * boostFactor;
-                            planet2.vx = (planet2.vx + impulseX / planet2.mass) * boostFactor;
-                            planet2.vy = (planet2.vy + impulseY / planet2.mass) * boostFactor;
-                            
-                            // Shrink both planets
+                            // Similar-sized planets: both shrink
                             planet1.radius *= SIZE_REDUCTION;
                             planet2.radius *= SIZE_REDUCTION;
                             
-                            // Recalculate mass
-                            planet1.mass = Math.PI * planet1.radius * planet1.radius * DENSITY * 
-                                           (planet1.massMultiplier || 1);
-                            planet2.mass = Math.PI * planet2.radius * planet2.radius * DENSITY * 
-                                           (planet2.massMultiplier || 1);
+                            // Recalculate masses
+                            planet1.mass = Math.PI * planet1.radius * planet1.radius * DENSITY * planet1.massMultiplier;
+                            planet2.mass = Math.PI * planet2.radius * planet2.radius * DENSITY * planet2.massMultiplier;
                             
-                            // Move planets apart to prevent continuous collisions
-                            const overlap = (planet1.radius + planet2.radius - distance) * 1.1;
-                            planet1.x -= nx * overlap / 2;
-                            planet1.y -= ny * overlap / 2;
-                            planet2.x += nx * overlap / 2;
-                            planet2.y += ny * overlap / 2;
-                            
-                            // Create explosion debris at collision point (only in real simulation)
+                            // Create explosion debris (only in real simulation)
                             if (!simulationPlanets) {
-                                const collisionX = planet1.x + dx * planet1.radius / distance;
-                                const collisionY = planet1.y + dy * planet1.radius / distance;
-                                
+                                const collisionX = (planet1.x + planet2.x) / 2;
+                                const collisionY = (planet1.y + planet2.y) / 2;
                                 createExplosionDebris(collisionX, collisionY, 
-                                                    (p1vx + p2vx) / 2, (p1vy + p2vy) / 2,
-                                                    planet1.color, Math.min(planet1.radius, planet2.radius) / 3);
+                                                    (p1vx + p2vx)/2, (p1vy + p2vy)/2,
+                                                    planet1.color, Math.min(planet1.radius, planet2.radius));
                             }
                             
-                            // Remove planets if they're too small
+                            // Remove if too small
                             if (planet1.radius < MIN_PLANET_RADIUS / 2) {
                                 planetsToRemove.push(planet1);
                                 if (!simulationPlanets) {
-                                    createExplosionDebris(planet1.x, planet1.y, p1vx, p1vy, 
-                                                      planet1.color, planet1.radius);
+                                    createExplosionDebris(planet1.x, planet1.y, p1vx, p1vy, planet1.color, planet1.radius);
                                 }
                             }
-                            
                             if (planet2.radius < MIN_PLANET_RADIUS / 2) {
                                 planetsToRemove.push(planet2);
                                 if (!simulationPlanets) {
-                                    createExplosionDebris(planet2.x, planet2.y, p2vx, p2vy, 
-                                                      planet2.color, planet2.radius);
+                                    createExplosionDebris(planet2.x, planet2.y, p2vx, p2vy, planet2.color, planet2.radius);
                                 }
                             }
                         } else {
-                            // Different-sized planets: smaller one explodes, larger one absorbs momentum
-                            
-                            // Determine which planet is smaller
+                            // Different-sized planets: smaller one is destroyed
                             const smallerPlanet = planet1.radius < planet2.radius ? planet1 : planet2;
                             const largerPlanet = planet1.radius < planet2.radius ? planet2 : planet1;
                             
-                            // Transfer momentum from smaller to larger planet
-                            // p = mv, so v_change = m_small * v_small / m_large
-                            const momentumRatio = smallerPlanet.mass / largerPlanet.mass;
-                            largerPlanet.vx += smallerPlanet.vx * momentumRatio * 0.8;
-                            largerPlanet.vy += smallerPlanet.vy * momentumRatio * 0.8;
-                            
-                            // Create explosion debris for smaller planet (only in real simulation)
+                            // Create debris for smaller planet
                             if (!simulationPlanets) {
                                 createExplosionDebris(smallerPlanet.x, smallerPlanet.y, 
                                                     smallerPlanet.vx, smallerPlanet.vy,
                                                     smallerPlanet.color, smallerPlanet.radius);
                             }
                             
-                            // Mark smaller planet for removal
                             planetsToRemove.push(smallerPlanet);
                         }
                     }
@@ -1345,18 +1329,11 @@
             
             // Remove planets marked for deletion
             if (planetsToRemove.length > 0) {
-                const filteredPlanets = planetsArray.filter(planet => !planetsToRemove.includes(planet));
-                
                 if (simulationPlanets) {
-                    return filteredPlanets;
+                    return planetsArray.filter(planet => !planetsToRemove.includes(planet));
                 } else {
-                    planets = filteredPlanets;
+                    planets = planets.filter(planet => !planetsToRemove.includes(planet));
                 }
-            }
-            
-            // Add new planets (if any were created)
-            if (!simulationPlanets && planetsToAdd.length > 0) {
-                planets = planets.concat(planetsToAdd);
             }
             
             return simulationPlanets || planets;
