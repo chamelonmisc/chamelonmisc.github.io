@@ -1533,9 +1533,7 @@ function createRandomPlanet() {
         initSeededRandom(DEFAULT_SEED);
         
         // Initialize with a few planets
-        for (let i = 0; i < 5; i++) {
-            planets.push(createRandomPlanet());
-        }
+        resetSimulation();
 
         // Handle window resize
         window.addEventListener('resize', function() {
