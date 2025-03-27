@@ -1339,68 +1339,105 @@
             return simulationPlanets || planets;
         }
 
-        // Simulate planet paths
-        async function simulatePaths() {
-            if (isSimulating || planets.length === 0 || isEditorOpen || isPaused) return;
+       // Improved path simulation with proper collision physics
+    async function simulatePaths() {
+        if (isSimulating || planets.length === 0 || isEditorOpen || isPaused) return;
+        
+        isSimulating = true;
+        simulationInfo.style.display = 'block';
+        
+        // Clone current planets for simulation
+        let simulationPlanets = planets.map(planet => planet.clone());
+        simulationPaths = planets.map(() => []);
+        
+        // Store initial positions
+        for (let j = 0; j < simulationPlanets.length; j++) {
+            simulationPaths[j].push({
+                x: simulationPlanets[j].x,
+                y: simulationPlanets[j].y
+            });
+        }
+
+        const chunkSize = 20;
+        const totalSteps = SIMULATION_STEPS;
+        
+        for (let step = 0; step < totalSteps; step += chunkSize) {
+            // Update progress indicator
+            const progress = Math.floor((step / totalSteps) * 100);
+            simulationProgress.textContent = `${progress}%`;
             
-            isSimulating = true;
-            simulationInfo.style.display = 'block';
-            
-            // Clone current planets for simulation
-            let simulationPlanets = planets.map(planet => planet.clone());
-            simulationPaths = planets.map(() => []);
-            
-            // Run simulation in chunks to avoid freezing the UI
-            const chunkSize = 20;
-            const totalSteps = SIMULATION_STEPS;
-            
-            for (let step = 0; step < totalSteps; step += chunkSize) {
-                // Update progress indicator
-                const progress = Math.floor((step / totalSteps) * 100);
-                simulationProgress.textContent = `${progress}%`;
-                
-                // Run a chunk of simulation steps
-                for (let i = 0; i < chunkSize && step + i < totalSteps; i++) {
-                    // Store current positions
-                    for (let j = 0; j < simulationPlanets.length; j++) {
-                        simulationPaths[j].push({
-                            x: simulationPlanets[j].x,
-                            y: simulationPlanets[j].y
-                        });
+            // Run a chunk of simulation steps with better physics
+            for (let i = 0; i < chunkSize && step + i < totalSteps; i++) {
+                // Update planet positions with proper physics
+                for (let planet of simulationPlanets) {
+                    // Reset acceleration each frame
+                    planet.ax = 0;
+                    planet.ay = 0;
+                    
+                    // Calculate gravitational forces from all other planets
+                    for (let other of simulationPlanets) {
+                        if (planet === other) continue;
+                        
+                        const dx = other.x - planet.x;
+                        const dy = other.y - planet.y;
+                        const distanceSq = dx * dx + dy * dy;
+                        const distance = Math.sqrt(distanceSq);
+                        
+                        // Only apply gravity if not colliding
+                        if (distance > planet.radius + other.radius) {
+                            const force = G * planet.mass * other.mass / distanceSq;
+                            const angle = Math.atan2(dy, dx);
+                            
+                            planet.ax += force * Math.cos(angle) / planet.mass;
+                            planet.ay += force * Math.sin(angle) / planet.mass;
+                        }
                     }
                     
-                    // Update planet positions
-                    for (let planet of simulationPlanets) {
-                        planet.update(simulationPlanets, SIMULATION_DT);
-                    }
+                    // Update velocity (half-step)
+                    planet.vx += planet.ax * SIMULATION_DT * 0.5;
+                    planet.vy += planet.ay * SIMULATION_DT * 0.5;
                     
-                    // Handle collisions
-                    simulationPlanets = handleCollisions(SIMULATION_DT, simulationPlanets);
+                    // Update position
+                    planet.x += planet.vx * SIMULATION_DT;
+                    planet.y += planet.vy * SIMULATION_DT;
                     
-                    // If no planets left, end simulation
-                    if (simulationPlanets.length === 0) {
-                        break;
-                    }
+                    // Update velocity (second half-step)
+                    planet.vx += planet.ax * SIMULATION_DT * 0.5;
+                    planet.vy += planet.ay * SIMULATION_DT * 0.5;
                 }
                 
-                // Allow UI to update
-                await new Promise(resolve => setTimeout(resolve, 0));
+                // Handle collisions with proper physics
+                simulationPlanets = handleCollisions(SIMULATION_DT, simulationPlanets);
+                
+                // Store positions after physics update
+                for (let j = 0; j < simulationPlanets.length; j++) {
+                    simulationPaths[j].push({
+                        x: simulationPlanets[j].x,
+                        y: simulationPlanets[j].y
+                    });
+                }
                 
                 // If no planets left, end simulation
-                if (simulationPlanets.length === 0) {
-                    break;
-                }
+                if (simulationPlanets.length === 0) break;
             }
             
-            // Finalize progress
-            simulationProgress.textContent = "100%";
+            // Allow UI to update
+            await new Promise(resolve => setTimeout(resolve, 0));
             
-            // Hide info panel after a short delay
-            setTimeout(() => {
-                simulationInfo.style.display = 'none';
-                isSimulating = false;
-            }, 1000);
+            // If no planets left, end simulation
+            if (simulationPlanets.length === 0) break;
         }
+        
+        // Finalize progress
+        simulationProgress.textContent = "100%";
+        
+        // Hide info panel after a short delay
+        setTimeout(() => {
+            simulationInfo.style.display = 'none';
+            isSimulating = false;
+        }, 1000);
+    }
+
 
         // Create initial planets
         function createRandomPlanet() {
