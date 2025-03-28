@@ -437,8 +437,7 @@
         <div class="time-btn" data-speed="16">0.5x</div>
         <div class="time-btn" data-speed="32">1x</div>
         <div class="time-btn" data-speed="64">2x</div>
-        <div class="time-btn" data-speed="128">4x</div>
-        <div class="time-btn" data-speed="256">8x</div>
+        <div class="time-btn" data-speed="128">3x</div>
     </div>
 
     <div class="pause-indicator" id="pauseIndicator">
@@ -568,99 +567,32 @@
         canvas.height = window.innerHeight;
 
         // Physics constants
-        const G = 6.674 * 10e-2;
+        const G = 6.674 * 10e-2; // Gravitational constant (scaled for simulation)
         const MIN_PLANET_RADIUS = 10;
         const MAX_PLANET_RADIUS = 50;
-        const DENSITY = 1;
-        const RESTITUTION = 0.8;
-        const INFLUENCE_THRESHOLD = 300;
-        const SIZE_RATIO_THRESHOLD = 0.625;
-        const DEBRIS_COUNT = 8;
-        const SIZE_REDUCTION = 0.8;
+        const DENSITY = 1; // Density factor for mass calculation
+        const RESTITUTION = 0.8; // Coefficient of restitution (elasticity of collisions)
+        const INFLUENCE_THRESHOLD = 300; // Distance threshold to consider gravitational influence 
+        const SIZE_RATIO_THRESHOLD = 0.625; // Threshold for similar sized planets (5/8 or 62.5%)
+        const DEBRIS_COUNT = 8; // Number of debris particles to create on collision
+        const SIZE_REDUCTION = 0.8; // How much planets shrink after collision (80% of original)
 
         // Simulation settings
-        const SIMULATION_STEPS = 2000;
-        const SIMULATION_DT = 0.5;
-
-        // Seed system
-        const DEFAULT_SEED = 12345;
-        let currentSeed = DEFAULT_SEED;
-        let customRandom = null;
-
-        // Initialize seeded random
-        function initSeededRandom(seed) {
-            currentSeed = seed;
-            customRandom = function() {
-                const x = Math.sin(currentSeed++) * 10000;
-                return x - Math.floor(x);
-            };
-        }
-
-        // Generate save code
-        function generateSaveCode() {
-            const state = {
-                seed: currentSeed,
-                planets: planets.map(p => ({
-                    x: p.x,
-                    y: p.y,
-                    radius: p.radius,
-                    vx: p.vx,
-                    vy: p.vy,
-                    color: p.color,
-                    massMultiplier: p.massMultiplier
-                })),
-                camera: { x: cameraX, y: cameraY, zoom: zoomLevel },
-                timeScale: timeScale
-            };
-            return btoa(JSON.stringify(state));
-        }
-
-        // Load from save code
-        function loadFromSaveCode(code) {
-            try {
-                const state = JSON.parse(atob(code));
-                initSeededRandom(state.seed);
-                
-                planets = [];
-                debris = [];
-                
-                state.planets.forEach(p => {
-                    const planet = new Planet(p.x, p.y, p.radius);
-                    planet.vx = p.vx;
-                    planet.vy = p.vy;
-                    planet.color = p.color;
-                    planet.massMultiplier = p.massMultiplier;
-                    planet.mass = Math.PI * p.radius * p.radius * DENSITY * p.massMultiplier;
-                    planets.push(planet);
-                });
-                
-                cameraX = state.camera.x;
-                cameraY = state.camera.y;
-                zoomLevel = state.camera.zoom;
-                timeScale = state.timeScale;
-                
-                return true;
-            } catch (e) {
-                console.error("Invalid save code", e);
-                return false;
-            }
-        }
-
-        // Reset simulation
-        function resetSimulation() {
-            planets = [];
-            debris = [];
-            for (let i = 0; i < 5; i++) {
-                planets.push(createRandomPlanet());
-            }
-            resetCamera();
-            simulationPaths = [];
-        }
+        const SIMULATION_STEPS = 2000; // Number of steps to simulate
+        const SIMULATION_DT = 0.5; // Time step for simulations
 
         // Time control
-        let timeScale = 8.0;
+        let timeScale = 8.0; // Default time scale now 8x
         let isPaused = false;
         let previousTimeScale = timeScale;
+        
+        // Pause Menu
+        const pauseOverlay = document.getElementById('pauseOverlay');
+        const pauseIndicator = document.getElementById('pauseIndicator');
+        const resumeBtn = document.getElementById('resumeBtn');
+        const resetKeysBtn = document.getElementById('resetKeysBtn');
+        const keybindItems = document.querySelectorAll('.keybind-item');
+        let currentListeningElement = null;
         
         // Keybindings
         let keybindings = {
@@ -669,9 +601,7 @@
             editPlanet: 'e',
             simulatePaths: 'q',
             togglePause: 'p',
-            resetCamera: 'r',
-            showSeed: 'l',
-            inputSeed: 'i'
+            resetCamera: 'r'
         };
         
         // Load keybindings from localStorage if available
@@ -686,79 +616,6 @@
                 }
             }
         }
-
-
-function initSeededRandom(seed) {
-    currentSeed = seed;
-    // Simple seeded random generator (Mulberry32 algorithm)
-    seededRandom = function() {
-        let t = currentSeed += 0x6D2B79F5;
-        t = Math.imul(t ^ t >>> 15, t | 1);
-        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-        return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
-}
-
-function generateSaveCode() {
-    const state = {
-        seed: currentSeed,
-        planets: planets.map(p => ({
-            x: p.x,
-            y: p.y,
-            radius: p.radius,
-            vx: p.vx,
-            vy: p.vy,
-            color: p.color,
-            massMultiplier: p.massMultiplier
-        })),
-        camera: { x: cameraX, y: cameraY, zoom: zoomLevel },
-        timeScale: timeScale
-    };
-    return btoa(JSON.stringify(state));
-}
-
-function loadFromSaveCode(code) {
-    try {
-        const state = JSON.parse(atob(code));
-        initSeededRandom(state.seed);
-        
-        // Clear existing planets
-        planets = [];
-        debris = [];
-        
-        // Create new planets from save
-        state.planets.forEach(p => {
-            const planet = new Planet(p.x, p.y, p.radius);
-            planet.vx = p.vx;
-            planet.vy = p.vy;
-            planet.color = p.color;
-            planet.massMultiplier = p.massMultiplier;
-            planet.mass = Math.PI * p.radius * p.radius * DENSITY * p.massMultiplier;
-            planets.push(planet);
-        });
-        
-        // Restore camera and time
-        cameraX = state.camera.x;
-        cameraY = state.camera.y;
-        zoomLevel = state.camera.zoom;
-        timeScale = state.timeScale;
-        
-        return true;
-    } catch (e) {
-        console.error("Invalid save code", e);
-        return false;
-    }
-}
-
-function resetSimulation() {
-    planets = [];
-    debris = [];
-    for (let i = 0; i < 5; i++) {
-        planets.push(createRandomPlanet());
-    }
-    resetCamera();
-    simulationPaths = [];
-}
         
         // Save keybindings to localStorage
         function saveKeybindings() {
@@ -783,9 +640,7 @@ function resetSimulation() {
                 editPlanet: 'e',
                 simulatePaths: 'q',
                 togglePause: 'p',
-                resetCamera: 'r',
-                showSeed: 'l',
-                inputSeed: 'i'
+                resetCamera: 'r'
             };
             updateKeybindDisplay();
             saveKeybindings();
@@ -1163,24 +1018,25 @@ function resetSimulation() {
             }
         }
 
-        // Planet class
+        // Planet class with improved collision handling
         class Planet {
             constructor(x, y, radius) {
                 this.x = x;
                 this.y = y;
                 this.radius = radius;
-                this.massMultiplier = 1;
+                this.massMultiplier = 1; // Default mass multiplier
                 this.mass = Math.PI * radius * radius * DENSITY * this.massMultiplier;
                 
+                // Initialize with zero velocity unless influenced by nearby planets
                 if (hasNearbyInfluence(x, y)) {
-                    this.vx = (customRandom() - 0.5) * 1;
-                    this.vy = (customRandom() - 0.5) * 1;
+                    this.vx = (Math.random() - 0.5) * 1;
+                    this.vy = (Math.random() - 0.5) * 1;
                 } else {
                     this.vx = 0;
                     this.vy = 0;
                 }
                 
-                this.color = planetColors[Math.floor(customRandom() * planetColors.length)];
+                this.color = planetColors[Math.floor(Math.random() * planetColors.length)];
                 this.trail = [];
                 this.maxTrailLength = 50;
             }
@@ -1196,6 +1052,7 @@ function resetSimulation() {
             }
 
             update(planets, dt) {
+                // Add current position to trail (reduced frequency at higher time scales)
                 if (Math.random() < 1/Math.max(1, dt*2)) {
                     this.trail.push({x: this.x, y: this.y});
                     if (this.trail.length > this.maxTrailLength) {
@@ -1203,19 +1060,26 @@ function resetSimulation() {
                     }
                 }
 
+                // Apply forces from other planets
                 for (let planet of planets) {
                     if (planet === this) continue;
                     
+                    // Calculate distance
                     const dx = planet.x - this.x;
                     const dy = planet.y - this.y;
                     const distanceSquared = dx * dx + dy * dy;
                     const distance = Math.sqrt(distanceSquared);
                     
-                    if (distance < this.radius + planet.radius) continue;
+                    // Skip gravitational calculation if planets are colliding
+                    if (distance < this.radius + planet.radius) {
+                        continue;
+                    }
                     
+                    // Calculate gravitational force (F = G * m1 * m2 / r^2)
                     const force = G * this.mass * planet.mass / distanceSquared;
                     const angle = Math.atan2(dy, dx);
                     
+                    // Apply acceleration (F = ma, so a = F/m) with time scaling
                     const ax = force * Math.cos(angle) / this.mass;
                     const ay = force * Math.sin(angle) / this.mass;
                     
@@ -1223,19 +1087,25 @@ function resetSimulation() {
                     this.vy += ay * dt;
                 }
 
+                // Update position based on velocity (no slowdown in space) with time scaling
                 this.x += this.vx * dt;
                 this.y += this.vy * dt;
             }
 
             draw(ctx) {
+                // Convert planet coordinates to screen coordinates
                 const screenPos = worldToScreen(this.x, this.y);
                 const screenRadius = this.radius * zoomLevel;
                 
+                // Skip drawing if planet is off-screen (with buffer)
                 if (screenPos.x + screenRadius < 0 || 
                     screenPos.x - screenRadius > canvas.width ||
                     screenPos.y + screenRadius < 0 || 
-                    screenPos.y - screenRadius > canvas.height) return;
+                    screenPos.y - screenRadius > canvas.height) {
+                    return;
+                }
 
+                // Draw trail
                 if (this.trail.length > 1) {
                     ctx.beginPath();
                     const firstPoint = worldToScreen(this.trail[0].x, this.trail[0].y);
@@ -1254,9 +1124,11 @@ function resetSimulation() {
                     ctx.stroke();
                 }
 
+                // Draw planet
                 ctx.beginPath();
                 ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
                 
+                // Add gradient for more realistic look
                 const gradient = ctx.createRadialGradient(
                     screenPos.x - screenRadius/3, screenPos.y - screenRadius/3, 0,
                     screenPos.x, screenPos.y, screenRadius
@@ -1270,17 +1142,20 @@ function resetSimulation() {
                 ctx.fillStyle = gradient;
                 ctx.fill();
                 
+                // Highlight when hovered or selected
                 if (this === hoveredPlanet || this === selectedPlanet) {
                     ctx.strokeStyle = this === selectedPlanet ? '#00ffff' : 'white';
                     ctx.lineWidth = (this === selectedPlanet ? 3 : 2) * zoomLevel;
                     ctx.stroke();
                 }
                 
+                // Show velocity vector if selected
                 if (this === selectedPlanet) {
-                    const velocityScale = 10;
+                    const velocityScale = 10; // Scale factor for better visibility
                     const endX = screenPos.x + this.vx * velocityScale;
                     const endY = screenPos.y + this.vy * velocityScale;
                     
+                    // Draw velocity line
                     ctx.beginPath();
                     ctx.moveTo(screenPos.x, screenPos.y);
                     ctx.lineTo(endX, endY);
@@ -1288,6 +1163,7 @@ function resetSimulation() {
                     ctx.lineWidth = 2 * zoomLevel;
                     ctx.stroke();
                     
+                    // Draw arrowhead
                     const arrowSize = 8 * zoomLevel;
                     const angle = Math.atan2(this.vy, this.vx);
                     ctx.beginPath();
@@ -1563,18 +1439,15 @@ function resetSimulation() {
     }
 
 
-        // Create random planet using seeded random
+        // Create initial planets
         function createRandomPlanet() {
-            const radius = MIN_PLANET_RADIUS + customRandom() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
-            const x = (customRandom() - 0.5) * canvas.width;
-            const y = (customRandom() - 0.5) * canvas.height;
+            const radius = MIN_PLANET_RADIUS + Math.random() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
+            const x = (Math.random() - 0.5) * canvas.width;
+            const y = (Math.random() - 0.5) * canvas.height;
             return new Planet(x, y, radius);
         }
 
-        // Initialize the simulation
-        initSeededRandom(DEFAULT_SEED);
-        let planets = [];
-        let debris = [];
+        // Initialize with a few planets
         for (let i = 0; i < 5; i++) {
             planets.push(createRandomPlanet());
         }
@@ -1731,30 +1604,6 @@ function resetSimulation() {
             if (key === keybindings.editPlanet && hoveredPlanet) {
                 openPlanetEditor(hoveredPlanet);
             }
-
-            // Show current seed (L key)
-            if (key === keybindings.showSeed) {
-                const saveCode = generateSaveCode();
-                alert(`Current seed: ${currentSeed}\nSave code:\n${saveCode}`);
-                return;
-            }
-            
-            // Input new seed (I key)
-            if (key === keybindings.inputSeed) {
-                const input = prompt("Enter seed number or save code:");
-                if (input) {
-                    if (/^\d+$/.test(input)) {
-                        initSeededRandom(parseInt(input));
-                        resetSimulation();
-                    } else {
-                        if (!loadFromSaveCode(input)) {
-                            alert("Invalid save code!");
-                        }
-                    }
-                }
-                return;
-            }
-        });
             
             // Reset camera
             if (key === keybindings.resetCamera) {
