@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2D Space Simulator</title>
+    <title>2D Space Simulator with Portals</title>
     <style>
+        /* --- Existing styles --- */
         body {
             margin: 0;
             overflow: hidden;
@@ -67,98 +68,130 @@
             user-select: none;
             z-index: 10;
         }
-        .planet-editor {
+
+        /* --- Shared Editor Styles --- */
+        .editor-base {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: rgba(20, 20, 30, 0.9);
-            border: 1px solid #444;
+            background-color: rgba(20, 20, 30, 0.95); /* Slightly more opaque */
+            border: 1px solid #555; /* Slightly lighter border */
             border-radius: 8px;
             padding: 20px;
             color: white;
             z-index: 100;
-            width: 320px;
+            width: 340px; /* Slightly wider */
             display: none;
-            box-shadow: 0 0 20px rgba(0, 100, 255, 0.5);
+            box-shadow: 0 5px 25px rgba(0, 100, 255, 0.6); /* Stronger shadow */
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
         }
-        .editor-title {
+         .editor-title {
             margin-top: 0;
             text-align: center;
-            color: #3498db;
-            font-size: 18px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
+            color: #4aafff; /* Brighter blue */
+            font-size: 20px; /* Larger title */
+            border-bottom: 1px solid #555;
+            padding-bottom: 12px;
+            margin-bottom: 18px;
+            font-weight: bold;
         }
         .editor-row {
             display: flex;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 14px; /* More spacing */
         }
         .editor-label {
-            width: 100px;
+            width: 110px; /* Wider label */
             flex-shrink: 0;
+            font-size: 14px;
+            color: #ccc; /* Lighter label text */
         }
         .editor-value {
             flex-grow: 1;
         }
         input[type="range"] {
             width: 100%;
-            background: #333;
+            background: #444; /* Darker track */
             height: 8px;
             border-radius: 4px;
             outline: none;
             -webkit-appearance: none;
+            cursor: pointer;
         }
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 8px;
-            background: #3498db;
+            width: 18px; /* Larger thumb */
+            height: 18px;
+            border-radius: 9px;
+            background: #4aafff; /* Match title color */
             cursor: pointer;
+            border: 2px solid #14141e; /* Border for contrast */
         }
         input[type="color"] {
             -webkit-appearance: none;
-            width: 30px;
-            height: 30px;
-            border: none;
+            width: 35px; /* Larger color swatch */
+            height: 35px;
+            border: 1px solid #555;
             background: none;
             cursor: pointer;
-        }
-        input[type="number"] {
-            background: rgba(50, 50, 70, 0.8);
-            border: 1px solid #444;
-            color: white;
-            padding: 5px;
-            width: 60px;
+            padding: 0; /* Remove default padding */
             border-radius: 4px;
+        }
+         input[type="color"]::-webkit-color-swatch-wrapper {
+             padding: 0;
+         }
+         input[type="color"]::-webkit-color-swatch {
+             border: none;
+             border-radius: 3px;
+         }
+        input[type="number"] {
+            background: rgba(60, 60, 80, 0.9); /* Slightly lighter input bg */
+            border: 1px solid #555;
+            color: white;
+            padding: 6px 8px;
+            width: 70px; /* Wider number input */
+            border-radius: 4px;
+            text-align: right;
         }
         .editor-buttons {
             display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
+            justify-content: space-around; /* Space out buttons more */
+            margin-top: 25px; /* More space before buttons */
+            padding-top: 15px;
+            border-top: 1px solid #555;
         }
         .editor-btn {
-            background: #2980b9;
+            background: #2f8edf; /* Consistent button blue */
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 9px 18px; /* Larger buttons */
+            border-radius: 5px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.1s;
             font-weight: bold;
+            font-size: 14px;
         }
         .editor-btn:hover {
-            background: #3498db;
+            background: #4aafff;
+            transform: translateY(-1px);
         }
+         .editor-btn:active {
+             transform: translateY(0px);
+         }
         .editor-btn.cancel {
             background: #7f8c8d;
         }
         .editor-btn.cancel:hover {
             background: #95a5a6;
         }
+        .editor-btn.delete {
+             background: #c0392b; /* Red for delete */
+         }
+        .editor-btn.delete:hover {
+             background: #e74c3c;
+         }
         .editor-btn.drag {
             background: #d35400;
         }
@@ -169,7 +202,13 @@
             background: #e74c3c;
             box-shadow: 0 0 10px rgba(231, 76, 60, 0.7);
         }
-        .velocity-visualizer {
+        .editor-btn:disabled {
+             background-color: #555;
+             color: #999;
+             cursor: not-allowed;
+             transform: none;
+         }
+         .velocity-visualizer { /* Reusing for portal direction */
             width: 100%;
             height: 100px;
             background-color: rgba(40, 40, 60, 0.5);
@@ -179,26 +218,27 @@
             overflow: hidden;
             border: 1px solid #444;
         }
-        .velocity-arrow {
+        .velocity-arrow { /* Reusing for portal direction */
             position: absolute;
             top: 50%;
             left: 50%;
             width: 0;
             height: 0;
-            transform-origin: 0 0;
+            transform-origin: 0 50%; /* Adjust origin for rotation */
             border-top: 6px solid transparent;
             border-bottom: 6px solid transparent;
-            border-left: 12px solid #3498db;
+            border-left: 12px solid #3498db; /* Default color */
+            transform: translate(0, -50%); /* Center vertically */
         }
-        .velocity-planet {
+        .velocity-planet { /* Center marker */
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 20px;
-            height: 20px;
-            background-color: #e74c3c;
+            width: 8px; /* Smaller marker */
+            height: 8px;
+            background-color: #eee;
             border-radius: 50%;
-            transform: translate(-10px, -10px);
+            transform: translate(-4px, -4px);
         }
         .velocity-grid {
             position: absolute;
@@ -210,9 +250,54 @@
                               linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: 20px 20px;
         }
-        /* Pause Menu Styles */
+
+        /* --- Planet Editor Specific Styles --- */
+        #planetEditor {
+            /* Inherits .editor-base */
+        }
+        #planetEditor .velocity-planet { /* Make planet marker red */
+             background-color: #e74c3c;
+         }
+
+
+        /* --- Portal Editor Specific Styles --- */
+         #portalEditor {
+             /* Inherits .editor-base */
+             width: 300px; /* Narrower */
+         }
+         #portalEditor .editor-buttons {
+             display: block; /* Stack buttons vertically */
+             text-align: center;
+         }
+         #portalEditor .editor-btn {
+             width: 80%; /* Make buttons wider */
+             margin-bottom: 10px; /* Add space between stacked buttons */
+         }
+         #portalEditor .editor-btn:last-child {
+             margin-bottom: 0;
+         }
+         #portalEditor .editor-info {
+             text-align: center;
+             color: #aaa;
+             font-size: 13px;
+             margin-top: 15px;
+         }
+
+        /* --- Portal Properties Editor Specific Styles --- */
+        #portalPropertiesEditor {
+             /* Inherits .editor-base */
+         }
+         #portalPropertiesEditor .velocity-arrow { /* Use portal color */
+            /* Color set by JS */
+         }
+         #portalPropertiesEditor .velocity-planet { /* Use portal color for center */
+             /* Color set by JS */
+         }
+
+
+        /* --- Pause Menu Styles --- */
         .pause-overlay {
-            position: fixed;
+            position: fixed; /* Changed to fixed */
             top: 0;
             left: 0;
             width: 100%;
@@ -387,6 +472,8 @@
         .pause-indicator-text {
             color: #60a5fa;
         }
+
+        /* --- Media Queries --- */
         @media (max-width: 768px) {
             .keybind-grid {
                 grid-template-columns: 1fr;
@@ -397,41 +484,71 @@
             .pause-title {
                 font-size: 24px;
             }
+            .editor-base { /* Adjust editor size on smaller screens */
+                 width: 90%;
+                 max-width: 340px;
+                 padding: 15px;
+             }
+             .editor-row {
+                 margin-bottom: 10px;
+             }
         }
         @media (max-width: 600px) {
             .controls, .time-controls, .simulation-info {
-                font-size: 12px;
-                padding: 5px;
+                font-size: 11px; /* Smaller text */
+                padding: 6px 8px;
             }
-            .planet-editor {
-                width: 90%;
-                max-width: 320px;
-                padding: 15px;
-            }
-            .editor-row {
-                margin-bottom: 8px;
-            }
+             .time-controls {
+                 gap: 5px;
+                 padding: 6px 10px;
+             }
+             .time-btn {
+                 padding: 4px 8px;
+             }
+            .editor-base {
+                 font-size: 13px;
+             }
+             .editor-label {
+                 width: 90px;
+                 font-size: 13px;
+             }
+             input[type="number"] {
+                 width: 60px;
+                 padding: 4px 6px;
+             }
+             .editor-btn {
+                 padding: 8px 14px;
+                 font-size: 13px;
+             }
+             #portalEditor .editor-btn {
+                 width: 90%;
+             }
         }
     </style>
 </head>
 <body>
     <canvas id="spaceCanvas"></canvas>
+
+    <!-- UI Elements -->
     <div class="controls">
         <p><strong>Space Simulator Controls:</strong></p>
-        <p>Press <strong>N</strong> to create a new planet at cursor position</p>
-        <p>Hover over a planet and press <strong>D</strong> to delete it</p>
-        <p>Press <strong>Q</strong> to simulate planet paths</p>
-        <p>Press <strong>E</strong> to edit selected planet</p>
-        <p>Press <strong>P</strong> to pause and configure</p>
-        <p><strong>Mouse wheel</strong> to zoom in/out</p>
-        <p><strong>Drag</strong> to pan the view</p>
+        <p><strong id="createPlanetKeyDisplay">N</strong>: Create Planet</p>
+        <p><strong id="deletePlanetKeyDisplay">D</strong>: Delete Hovered Planet</p>
+        <p><strong id="simulatePathsKeyDisplay">Q</strong>: Simulate Paths (Live Sim Only)</p>
+        <p><strong id="editPlanetKeyDisplay">E</strong>: Edit Hovered Planet</p>
+        <p><strong id="openPortalEditorKeyDisplay">O</strong>: Open Portal Editor</p> <!-- New -->
+        <p><strong id="togglePauseKeyDisplay">P</strong>: Pause & Configure</p>
+        <p><strong id="resetCameraKeyDisplay">R</strong>: Reset Camera</p> <!-- New -->
+        <p><strong>Mouse Wheel</strong>: Zoom</p>
+        <p><strong>Drag</strong>: Pan</p>
+        <p><strong>Dbl-Click Portal</strong>: Edit Portal</p> <!-- New -->
     </div>
-    
+
     <div class="simulation-info" id="simulationInfo" style="display: none;">
         <p><strong>Simulating paths...</strong></p>
         <div id="simulationProgress">0%</div>
     </div>
-    
+
     <div class="time-controls">
         <div class="time-btn active" data-speed="8">0.25x</div>
         <div class="time-btn" data-speed="16">0.5x</div>
@@ -446,112 +563,48 @@
         <div class="pause-indicator-text">PAUSED</div>
     </div>
 
+    <!-- Pause Menu / Keybind Config -->
     <div class="pause-overlay" id="pauseOverlay">
         <div class="pause-menu">
-            <div class="pause-header">
-                <h1 class="pause-title">Space Simulator</h1>
-            </div>
-            
+            <div class="pause-header"><h1 class="pause-title">Space Simulator</h1></div>
             <p class="pause-subtitle">Simulation paused. Configure your controls below.</p>
-            
+
             <div class="keybind-section">
-                <h2 class="keybind-title">Planet Controls</h2>
+                <h2 class="keybind-title">Object Controls</h2>
                 <div class="keybind-grid">
-                    <div class="keybind-item" data-action="createPlanet">
-                        <div class="keybind-action">Create Planet</div>
-                        <div class="keybind-key" id="createPlanetKey">N</div>
-                    </div>
-                    <div class="keybind-item" data-action="deletePlanet">
-                        <div class="keybind-action">Delete Planet</div>
-                        <div class="keybind-key" id="deletePlanetKey">D</div>
-                    </div>
-                    <div class="keybind-item" data-action="editPlanet">
-                        <div class="keybind-action">Edit Planet</div>
-                        <div class="keybind-key" id="editPlanetKey">E</div>
-                    </div>
-                    <div class="keybind-item" data-action="simulatePaths">
-                        <div class="keybind-action">Simulate Paths</div>
-                        <div class="keybind-key" id="simulatePathsKey">Q</div>
-                    </div>
+                    <div class="keybind-item" data-action="createPlanet"><div class="keybind-action">Create Planet</div><div class="keybind-key" id="createPlanetKey">N</div></div>
+                    <div class="keybind-item" data-action="deletePlanet"><div class="keybind-action">Delete Planet</div><div class="keybind-key" id="deletePlanetKey">D</div></div>
+                    <div class="keybind-item" data-action="editPlanet"><div class="keybind-action">Edit Planet</div><div class="keybind-key" id="editPlanetKey">E</div></div>
+                    <div class="keybind-item" data-action="simulatePaths"><div class="keybind-action">Simulate Paths</div><div class="keybind-key" id="simulatePathsKey">Q</div></div>
+                    <div class="keybind-item" data-action="openPortalEditor"><div class="keybind-action">Open Portal Menu</div><div class="keybind-key" id="openPortalEditorKey">O</div></div> <!-- New -->
                 </div>
             </div>
-            
+
             <div class="keybind-section">
                 <h2 class="keybind-title">System Controls</h2>
                 <div class="keybind-grid">
-                    <div class="keybind-item" data-action="togglePause">
-                        <div class="keybind-action">Pause/Resume</div>
-                        <div class="keybind-key" id="togglePauseKey">P</div>
-                    </div>
-                    <div class="keybind-item" data-action="resetCamera">
-                        <div class="keybind-action">Reset Camera</div>
-                        <div class="keybind-key" id="resetCameraKey">R</div>
-                    </div>
+                    <div class="keybind-item" data-action="togglePause"><div class="keybind-action">Pause/Resume</div><div class="keybind-key" id="togglePauseKey">P</div></div>
+                    <div class="keybind-item" data-action="resetCamera"><div class="keybind-action">Reset Camera</div><div class="keybind-key" id="resetCameraKey">R</div></div>
                 </div>
             </div>
-            
+
             <div class="pause-menu-footer">
-                <button class="pause-btn" id="resetKeysBtn">
-                    <span class="pause-btn-icon">↺</span> Reset Keys
-                </button>
-                <button class="pause-btn primary" id="resumeBtn">
-                    <span class="pause-btn-icon">▶</span> Resume
-                </button>
+                <button class="pause-btn" id="resetKeysBtn"><span class="pause-btn-icon">↺</span> Reset Keys</button>
+                <button class="pause-btn primary" id="resumeBtn"><span class="pause-btn-icon">▶</span> Resume</button>
             </div>
-            
-            <p class="pause-info">Click on any control to rebind it</p>
+            <p class="pause-info">Click on any control to rebind it (Press Esc to cancel)</p>
         </div>
     </div>
 
-    <div class="planet-editor" id="planetEditor">
+    <!-- Planet Editor -->
+    <div class="editor-base planet-editor" id="planetEditor">
         <h3 class="editor-title">Planet Editor</h3>
-        
-        <div class="editor-row">
-            <div class="editor-label">Size:</div>
-            <div class="editor-value">
-                <input type="range" id="planetSize" min="10" max="50" value="20">
-            </div>
-        </div>
-        
-        <div class="editor-row">
-            <div class="editor-label">Mass Factor:</div>
-            <div class="editor-value">
-                <input type="range" id="planetMass" min="0.1" max="5" value="1" step="0.1">
-            </div>
-        </div>
-        
-        <div class="editor-row">
-            <div class="editor-label">Color:</div>
-            <div class="editor-value">
-                <input type="color" id="planetColor" value="#FF5733">
-            </div>
-        </div>
-        
-        <div class="editor-row">
-            <div class="editor-label">Velocity:</div>
-            <div class="editor-value">
-                <div class="velocity-visualizer">
-                    <div class="velocity-grid"></div>
-                    <div class="velocity-planet" id="velocityPlanet"></div>
-                    <div class="velocity-arrow" id="velocityArrow"></div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="editor-row">
-            <div class="editor-label">Speed:</div>
-            <div class="editor-value">
-                <input type="number" id="speedValue" min="0" max="10" value="1" step="0.1">
-            </div>
-        </div>
-        
-        <div class="editor-row">
-            <div class="editor-label">Direction:</div>
-            <div class="editor-value">
-                <input type="range" id="directionValue" min="0" max="360" value="0">
-            </div>
-        </div>
-        
+        <div class="editor-row"><div class="editor-label">Size:</div><div class="editor-value"><input type="range" id="planetSize" min="10" max="50" value="20"></div></div>
+        <div class="editor-row"><div class="editor-label">Mass Factor:</div><div class="editor-value"><input type="range" id="planetMass" min="0.1" max="5" value="1" step="0.1"></div></div>
+        <div class="editor-row"><div class="editor-label">Color:</div><div class="editor-value"><input type="color" id="planetColor" value="#FF5733"></div></div>
+        <div class="editor-row"><div class="editor-label">Velocity:</div><div class="editor-value"><div class="velocity-visualizer"><div class="velocity-grid"></div><div class="velocity-planet" id="velocityPlanet"></div><div class="velocity-arrow" id="velocityArrow"></div></div></div></div>
+        <div class="editor-row"><div class="editor-label">Speed:</div><div class="editor-value"><input type="number" id="speedValue" min="0" max="10" value="1" step="0.1"></div></div>
+        <div class="editor-row"><div class="editor-label">Direction (°):</div><div class="editor-value"><input type="range" id="directionValue" min="0" max="360" value="0"></div></div>
         <div class="editor-buttons">
             <button class="editor-btn drag" id="dragPlanetBtn">Drag Planet</button>
             <button class="editor-btn" id="applyChangesBtn">Apply</button>
@@ -559,205 +612,98 @@
         </div>
     </div>
 
+    <!-- Portal Editor (Main) -->
+    <div class="editor-base" id="portalEditor">
+        <h3 class="editor-title">Portal Creation</h3>
+        <div class="editor-buttons">
+             <button class="editor-btn" id="createPortal1Btn">Create Portal 1</button>
+             <button class="editor-btn" id="createPortal2Btn" disabled>Create Portal 2</button>
+             <button class="editor-btn delete" id="deleteAllPortalsBtn">Delete All Portals</button>
+             <button class="editor-btn cancel" id="exitPortalEditorBtn">Close</button>
+         </div>
+         <p class="editor-info" id="portalEditorInfo">Click 'Create Portal 1' then place it with the mouse. Then 'Create Portal 2'.</p>
+    </div>
+
+    <!-- Portal Properties Editor -->
+    <div class="editor-base" id="portalPropertiesEditor">
+         <h3 class="editor-title">Portal Properties</h3>
+         <div class="editor-row"><div class="editor-label">Size:</div><div class="editor-value"><input type="range" id="portalPropSize" min="15" max="60" value="30"></div></div>
+         <div class="editor-row"><div class="editor-label">Color:</div><div class="editor-value"><input type="color" id="portalPropColor" value="#9b59b6"></div></div>
+         <div class="editor-row"><div class="editor-label">Exit Direction:</div><div class="editor-value"><div class="velocity-visualizer"><div class="velocity-grid"></div><div class="velocity-planet" id="portalPropVizMarker"></div><div class="velocity-arrow" id="portalPropVizArrow"></div></div></div></div>
+         <div class="editor-row"><div class="editor-label">Exit Speed:</div><div class="editor-value"><input type="number" id="portalPropSpeed" min="0" max="10" value="2" step="0.1"></div></div>
+         <div class="editor-row"><div class="editor-label">Exit Angle (°):</div><div class="editor-value"><input type="range" id="portalPropDirection" min="0" max="360" value="0"></div></div>
+         <div class="editor-buttons">
+             <button class="editor-btn drag" id="dragPortalBtn">Drag Portal</button>
+             <button class="editor-btn cancel" id="exitPortalPropertiesBtn">Close</button>
+         </div>
+     </div>
+
+
     <script>
-        // Canvas setup
+        // --- Canvas setup ---
         const canvas = document.getElementById('spaceCanvas');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // Physics constants
-        const G = 6.674 * 10e-2; // Gravitational constant (scaled for simulation)
+        // --- Physics & Simulation constants ---
+        const G = 6.674 * 10e-2;
         const MIN_PLANET_RADIUS = 10;
         const MAX_PLANET_RADIUS = 50;
-        const DENSITY = 1; // Density factor for mass calculation
-        const RESTITUTION = 0.8; // Coefficient of restitution (elasticity of collisions)
-        const INFLUENCE_THRESHOLD = 300; // Distance threshold to consider gravitational influence 
-        const SIZE_RATIO_THRESHOLD = 0.625; // Threshold for similar sized planets (5/8 or 62.5%)
-        const DEBRIS_COUNT = 8; // Number of debris particles to create on collision
-        const SIZE_REDUCTION = 0.8; // How much planets shrink after collision (80% of original)
+        const DENSITY = 1;
+        const RESTITUTION = 0.8;
+        const INFLUENCE_THRESHOLD = 300;
+        const SIZE_RATIO_THRESHOLD = 0.625;
+        const DEBRIS_COUNT = 8;
+        const SIZE_REDUCTION = 0.8;
+        const SIMULATION_STEPS = 2000;
+        const SIMULATION_DT = 0.5;
+        const TELEPORT_COOLDOWN_FRAMES = 15; // Prevent instant re-teleport
 
-        // Simulation settings
-        const SIMULATION_STEPS = 2000; // Number of steps to simulate
-        const SIMULATION_DT = 0.5; // Time step for simulations
-
-        // Time control
-        let timeScale = 8.0; // Default time scale now 8x
+        // --- Simulation State ---
+        let timeScale = 32.0; // Start at 1x speed (index 2)
         let isPaused = false;
         let previousTimeScale = timeScale;
-        
-        // Pause Menu
+        let isSimulating = false;
+        let simulationPaths = [];
+        let planets = [];
+        let debris = [];
+        let portalPairs = []; // Array of { portal1: Portal, portal2: Portal }
+        let nextPortalId = 0;
+
+        // --- Camera & Mouse ---
+        let cameraX = 0;
+        let cameraY = 0;
+        let zoomLevel = 1;
+        let isDraggingView = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let mouseX = 0;
+        let mouseY = 0;
+        let hoveredPlanet = null;
+        let selectedPlanet = null;
+        let hoveredPortal = null; // New
+        let selectedPortal = null; // New
+
+        // --- Editor States ---
+        let isPlanetEditorOpen = false;
+        let isPlanetEditorDragging = false;
+        let isPortalEditorOpen = false; // New
+        let isPortalPropertiesEditorOpen = false; // New
+        let isPortalDragging = false; // New
+        let pendingPortal1 = null; // For portal pair creation
+
+        // --- UI Elements ---
+        const simulationInfo = document.getElementById('simulationInfo');
+        const simulationProgress = document.getElementById('simulationProgress');
+        const timeButtons = document.querySelectorAll('.time-btn');
         const pauseOverlay = document.getElementById('pauseOverlay');
         const pauseIndicator = document.getElementById('pauseIndicator');
         const resumeBtn = document.getElementById('resumeBtn');
         const resetKeysBtn = document.getElementById('resetKeysBtn');
         const keybindItems = document.querySelectorAll('.keybind-item');
-        let currentListeningElement = null;
-        
-        // Keybindings
-        let keybindings = {
-            createPlanet: 'n',
-            deletePlanet: 'd',
-            editPlanet: 'e',
-            simulatePaths: 'q',
-            togglePause: 'p',
-            resetCamera: 'r'
-        };
-        
-        // Load keybindings from localStorage if available
-        function loadKeybindings() {
-            const savedBindings = localStorage.getItem('spaceSimKeybindings');
-            if (savedBindings) {
-                try {
-                    keybindings = JSON.parse(savedBindings);
-                    updateKeybindDisplay();
-                } catch (e) {
-                    console.error('Error loading keybindings:', e);
-                }
-            }
-        }
-        
-        // Save keybindings to localStorage
-        function saveKeybindings() {
-            localStorage.setItem('spaceSimKeybindings', JSON.stringify(keybindings));
-        }
-        
-        // Update keybind display
-        function updateKeybindDisplay() {
-            for (const [action, key] of Object.entries(keybindings)) {
-                const keyElement = document.getElementById(`${action}Key`);
-                if (keyElement) {
-                    keyElement.textContent = key.toUpperCase();
-                }
-            }
-        }
-        
-        // Reset keybindings to default
-        function resetKeybindings() {
-            keybindings = {
-                createPlanet: 'n',
-                deletePlanet: 'd',
-                editPlanet: 'e',
-                simulatePaths: 'q',
-                togglePause: 'p',
-                resetCamera: 'r'
-            };
-            updateKeybindDisplay();
-            saveKeybindings();
-        }
-        
-        // Toggle pause state
-        function togglePause() {
-            isPaused = !isPaused;
-            
-            if (isPaused) {
-                previousTimeScale = timeScale;
-                timeScale = 0;
-                pauseOverlay.classList.add('active');
-                pauseIndicator.classList.add('active');
-            } else {
-                timeScale = previousTimeScale;
-                pauseOverlay.classList.remove('active');
-                pauseIndicator.classList.remove('active');
-                
-                // If we were listening for a key, cancel it
-                if (currentListeningElement) {
-                    currentListeningElement.classList.remove('listening');
-                    currentListeningElement = null;
-                }
-            }
-        }
-        
-        // Setup pause menu event listeners
-        resumeBtn.addEventListener('click', togglePause);
-        
-        resetKeysBtn.addEventListener('click', resetKeybindings);
-        
-        // Setup keybind customization
-        keybindItems.forEach(item => {
-            item.addEventListener('click', function() {
-                const action = this.getAttribute('data-action');
-                const keyElement = this.querySelector('.keybind-key');
-                
-                // Cancel any current listening
-                if (currentListeningElement) {
-                    currentListeningElement.classList.remove('listening');
-                }
-                
-                // Set this element as listening
-                this.classList.add('listening');
-                currentListeningElement = this;
-                keyElement.textContent = '...';
-                
-                // Create one-time event listener for the next keypress
-                const handleKeyPress = function(e) {
-                    e.preventDefault();
-                    
-                    // Get the key (lowercase for consistency)
-                    let newKey = e.key.toLowerCase();
-                    
-                    // Special case for Escape key
-                    if (newKey === 'escape') {
-                        // Cancel rebinding
-                        keyElement.textContent = keybindings[action].toUpperCase();
-                        item.classList.remove('listening');
-                        currentListeningElement = null;
-                        document.removeEventListener('keydown', handleKeyPress);
-                        return;
-                    }
-                    
-                    // For special keys, use more readable names
-                    if (newKey === ' ') newKey = 'space';
-                    
-                    // Update the keybinding
-                    keybindings[action] = newKey;
-                    keyElement.textContent = newKey.toUpperCase();
-                    
-                    // Save keybindings
-                    saveKeybindings();
-                    
-                    // Reset listening state
-                    item.classList.remove('listening');
-                    currentListeningElement = null;
-                    
-                    // Remove this temporary event listener
-                    document.removeEventListener('keydown', handleKeyPress);
-                };
-                
-                document.addEventListener('keydown', handleKeyPress);
-            });
-        let debris = [];
-        });
-        
-        // Simulation control
-        let isSimulating = false;
-        let simulationPaths = [];
-        const simulationInfo = document.getElementById('simulationInfo');
-        const simulationProgress = document.getElementById('simulationProgress');
-        
-        // Camera/view controls
-        let cameraX = 0;
-        let cameraY = 0;
-        let zoomLevel = 1;
-        let isDragging = false;
-        let lastMouseX = 0;
-        let lastMouseY = 0;
 
-        // Mouse tracking
-        let mouseX = 0;
-        let mouseY = 0;
-        let hoveredPlanet = null;
-        let selectedPlanet = null;
-
-        // Editor mode controls
-        let isEditorOpen = false;
-        let isEditorDragging = false;
-        
-        // Array to store planets and debris
-        let planets = [];
-        let debris = [];
-
-        // Get editor elements
+        // Planet Editor Elements
         const planetEditor = document.getElementById('planetEditor');
         const planetSize = document.getElementById('planetSize');
         const planetMass = document.getElementById('planetMass');
@@ -770,1024 +716,1375 @@
         const velocityArrow = document.getElementById('velocityArrow');
         const velocityPlanet = document.getElementById('velocityPlanet');
 
-        // Set up time control buttons
-        const timeButtons = document.querySelectorAll('.time-btn');
-        timeButtons.forEach(btn => {
-            btn.addEventListener('click', function() {
-                if (isPaused) return; // Don't change time scale if paused
-                
-                // Update active state
-                timeButtons.forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Set time scale
-                timeScale = parseFloat(this.getAttribute('data-speed'));
-                previousTimeScale = timeScale;
-            });
-        });
+        // Portal Editor Elements (Main)
+        const portalEditor = document.getElementById('portalEditor');
+        const createPortal1Btn = document.getElementById('createPortal1Btn');
+        const createPortal2Btn = document.getElementById('createPortal2Btn');
+        const deleteAllPortalsBtn = document.getElementById('deleteAllPortalsBtn');
+        const exitPortalEditorBtn = document.getElementById('exitPortalEditorBtn');
+        const portalEditorInfo = document.getElementById('portalEditorInfo');
 
-        // Color palette for planets
-        const planetColors = [
-            '#FF5733', '#C70039', '#900C3F', '#581845',
-            '#FFC300', '#DAF7A6', '#FF5733', '#2471A3',
-            '#1ABC9C', '#3498DB', '#E74C3C', '#8E44AD'
-        ];
+        // Portal Properties Editor Elements
+        const portalPropertiesEditor = document.getElementById('portalPropertiesEditor');
+        const portalPropSize = document.getElementById('portalPropSize');
+        const portalPropColor = document.getElementById('portalPropColor');
+        const portalPropSpeed = document.getElementById('portalPropSpeed');
+        const portalPropDirection = document.getElementById('portalPropDirection');
+        const portalPropVizArrow = document.getElementById('portalPropVizArrow');
+        const portalPropVizMarker = document.getElementById('portalPropVizMarker');
+        const dragPortalBtn = document.getElementById('dragPortalBtn'); // Reused ID, careful! Let's rename it in HTML/JS
+        const exitPortalPropertiesBtn = document.getElementById('exitPortalPropertiesBtn');
+        // Renaming the drag button in Portal Properties
+        const dragPortalPropBtn = document.getElementById('dragPortalBtn'); // Assuming HTML corrected to id="dragPortalPropBtn" - IMPORTANT!
 
-        // Pre-generate star data for better performance
+        // --- Keybindings ---
+        let currentListeningElement = null;
+        let keybindings = {
+            createPlanet: 'n',
+            deletePlanet: 'd',
+            editPlanet: 'e',
+            simulatePaths: 'q',
+            openPortalEditor: 'o', // New
+            togglePause: 'p',
+            resetCamera: 'r'
+        };
+
+        // --- Initialization ---
+        loadKeybindings();
+        updateKeybindDisplay(); // Initial display update
+        setupTimeControls();
+        setupPauseMenu();
+
+        // --- Color Palettes ---
+        const planetColors = ['#FF5733', '#C70039', '#900C3F', '#581845', '#FFC300', '#DAF7A6', '#2471A3', '#1ABC9C', '#3498DB', '#E74C3C', '#8E44AD'];
+        const portalColors = ['#9b59b6', '#3498db', '#1abc9c', '#f1c40f', '#e67e22']; // Palette for portals
+
+        // --- Star Background Cache ---
         const starCache = new Map();
-        const starDensity = 0.00002; // Significantly reduced star density
-        const gridSize = 1000; // Larger grid size to further reduce stars
+        const starDensity = 0.00002;
+        const gridSize = 1000;
 
-        // Planet Editor Functions
-        function openPlanetEditor(planet) {
-            if (isEditorOpen) return;
+        // === Core Classes ===
 
-            // Pause the simulation
-            previousTimeScale = timeScale;
-            timeScale = 0;
-            isPaused = true;
-            isEditorOpen = true;
-            selectedPlanet = planet;
-            
-            // Show paused indicator
-            pauseIndicator.classList.add('active');
-            
-            // Set editor values
-            planetSize.value = planet.radius;
-            planetMass.value = planet.massMultiplier || 1;
-            planetColor.value = planet.color;
-            
-            // Calculate speed and direction
-            const speed = Math.sqrt(planet.vx * planet.vx + planet.vy * planet.vy);
-            speedValue.value = speed.toFixed(1);
-            
-            // Calculate direction angle in degrees
-            let direction = Math.atan2(planet.vy, planet.vx) * 180 / Math.PI;
-            if (direction < 0) direction += 360;
-            directionValue.value = direction.toFixed(0);
-            
-            // Update velocity arrow visualization
-            updateVelocityArrow();
-            
-            // Set planet color in the velocity visualizer
-            velocityPlanet.style.backgroundColor = planet.color;
-            
-            // Show the editor
-            planetEditor.style.display = 'block';
-        }
-        
-        function closePlanetEditor() {
-            if (!isEditorOpen) return;
+        class Portal {
+             constructor(x, y, id) {
+                 this.id = id;
+                 this.x = x;
+                 this.y = y;
+                 this.radius = 30; // Default size
+                 this.color = portalColors[Math.floor(Math.random() * portalColors.length)];
+                 this.exitAngle = 0; // Radians
+                 this.exitSpeed = 2; // Default exit speed
+                 this.linkedPortal = null; // Reference to the other portal object
+                 this.isPending = true; // True until linked
+             }
 
-            // Restore time scale
-            timeScale = previousTimeScale;
-            isPaused = false;
-            isEditorOpen = false;
-            isEditorDragging = false;
-            selectedPlanet = null;
-            dragPlanetBtn.classList.remove('active');
-            
-            // Hide paused indicator
-            pauseIndicator.classList.remove('active');
-            
-            // Hide the editor
-            planetEditor.style.display = 'none';
-        }
-        
-        function applyEditorChanges() {
-            if (!selectedPlanet) return;
-            
-            // Apply size change
-            selectedPlanet.radius = parseFloat(planetSize.value);
-            
-            // Apply mass multiplier (storing it separately)
-            selectedPlanet.massMultiplier = parseFloat(planetMass.value);
-            selectedPlanet.mass = Math.PI * selectedPlanet.radius * selectedPlanet.radius * 
-                                 DENSITY * selectedPlanet.massMultiplier;
-            
-            // Apply color change
-            selectedPlanet.color = planetColor.value;
-            
-            // Apply velocity changes
-            const speed = parseFloat(speedValue.value);
-            const direction = parseFloat(directionValue.value) * Math.PI / 180;
-            selectedPlanet.vx = speed * Math.cos(direction);
-            selectedPlanet.vy = speed * Math.sin(direction);
-            
-            // Clear the trail after editing
-            selectedPlanet.trail = [];
-            
-            // Clear simulation paths when editing planets
-            simulationPaths = [];
-        }
-        
-        function updateVelocityArrow() {
-            if (!selectedPlanet) return;
-            
-            const speed = parseFloat(speedValue.value);
-            const direction = parseFloat(directionValue.value) * Math.PI / 180;
-            
-            // Scale the arrow length based on speed (max 40px)
-            const maxLength = 40;
-            const arrowLength = Math.min(speed * 10, maxLength);
-            
-            // Set the arrow position and rotation
-            velocityArrow.style.width = arrowLength + 'px';
-            velocityArrow.style.transform = `rotate(${directionValue.value}deg)`;
-            velocityArrow.style.borderLeftWidth = `${arrowLength}px`;
-            velocityArrow.style.borderLeftColor = selectedPlanet.color;
-        }
-        
-        function resetCamera() {
-            cameraX = 0;
-            cameraY = 0;
-            zoomLevel = 1;
-        }
-        
-        // Set up editor event listeners
-        planetSize.addEventListener('input', function() {
-            if (!selectedPlanet) return;
-            applyEditorChanges();
-        });
-        
-        planetMass.addEventListener('input', function() {
-            if (!selectedPlanet) return;
-            applyEditorChanges();
-        });
-        
-        planetColor.addEventListener('input', function() {
-            if (!selectedPlanet) return;
-            applyEditorChanges();
-            velocityPlanet.style.backgroundColor = planetColor.value;
-            velocityArrow.style.borderLeftColor = planetColor.value;
-        });
-        
-        speedValue.addEventListener('input', function() {
-            if (!selectedPlanet) return;
-            updateVelocityArrow();
-            applyEditorChanges();
-        });
-        
-        directionValue.addEventListener('input', function() {
-            if (!selectedPlanet) return;
-            updateVelocityArrow();
-            applyEditorChanges();
-        });
-        
-        dragPlanetBtn.addEventListener('click', function() {
-            isEditorDragging = !isEditorDragging;
-            this.classList.toggle('active');
-        });
-        
-        applyChangesBtn.addEventListener('click', function() {
-            applyEditorChanges();
-        });
-        
-        exitEditorBtn.addEventListener('click', function() {
-            closePlanetEditor();
-        });
+             draw(ctx) {
+                 const screenPos = worldToScreen(this.x, this.y);
+                 const screenRadius = this.radius * zoomLevel;
 
-        // Convert screen to world coordinates
-        function screenToWorld(screenX, screenY) {
-            return {
-                x: (screenX - canvas.width/2) / zoomLevel + cameraX,
-                y: (screenY - canvas.height/2) / zoomLevel + cameraY
-            };
-        }
+                 // Skip drawing if off-screen
+                 if (screenPos.x + screenRadius < 0 || screenPos.x - screenRadius > canvas.width ||
+                     screenPos.y + screenRadius < 0 || screenPos.y - screenRadius > canvas.height) {
+                     return;
+                 }
 
-        // Convert world to screen coordinates
-        function worldToScreen(worldX, worldY) {
-            return {
-                x: (worldX - cameraX) * zoomLevel + canvas.width/2,
-                y: (worldY - cameraY) * zoomLevel + canvas.height/2
-            };
-        }
+                 const baseLineWidth = 2.5 * zoomLevel;
+                 const hoverBoost = (this === hoveredPortal || this === selectedPortal) ? 1.5 * zoomLevel : 0;
+                 const selectedBoost = (this === selectedPortal) ? 1 * zoomLevel : 0;
 
-        // Check if a new planet would be influenced by existing planets
-        function hasNearbyInfluence(x, y) {
-            for (let planet of planets) {
-                const dx = planet.x - x;
-                const dy = planet.y - y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < INFLUENCE_THRESHOLD) {
-                    return true;
-                }
+                 // Outer ring (main color)
+                 ctx.beginPath();
+                 ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
+                 ctx.strokeStyle = this.isPending ? '#888' : this.color; // Gray if pending
+                 ctx.lineWidth = baseLineWidth + hoverBoost + selectedBoost;
+                 ctx.stroke();
+
+                 // Inner ring (white highlight)
+                 ctx.beginPath();
+                 ctx.arc(screenPos.x, screenPos.y, screenRadius - (baseLineWidth + hoverBoost + selectedBoost) / 2 - 1 * zoomLevel, 0, Math.PI * 2);
+                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                 ctx.lineWidth = 1 * zoomLevel;
+                 ctx.stroke();
+
+                 // Selection highlight
+                 if (this === selectedPortal) {
+                      ctx.beginPath();
+                      ctx.arc(screenPos.x, screenPos.y, screenRadius + (baseLineWidth + hoverBoost + selectedBoost)/2 + 1 * zoomLevel, 0, Math.PI * 2);
+                      ctx.strokeStyle = '#00ffff'; // Cyan selection
+                      ctx.lineWidth = 1.5 * zoomLevel;
+                      ctx.stroke();
+                 }
+
+                 // Draw exit direction arrow if linked and selected/hovered strongly
+                 if (!this.isPending && this === selectedPortal) {
+                     this.drawExitIndicator(ctx, screenPos, screenRadius);
+                 }
+             }
+
+            drawExitIndicator(ctx, screenPos, screenRadius) {
+                const exitAngleRad = this.exitAngle * Math.PI / 180;
+                const arrowLength = screenRadius * 0.8;
+                const startX = screenPos.x + Math.cos(exitAngleRad) * screenRadius * 0.2;
+                const startY = screenPos.y + Math.sin(exitAngleRad) * screenRadius * 0.2;
+                const endX = startX + Math.cos(exitAngleRad) * arrowLength;
+                const endY = startY + Math.sin(exitAngleRad) * arrowLength;
+                const arrowSize = 8 * zoomLevel;
+
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2 * zoomLevel;
+                ctx.stroke();
+
+                // Arrowhead
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - arrowSize * Math.cos(exitAngleRad - Math.PI / 6), endY - arrowSize * Math.sin(exitAngleRad - Math.PI / 6));
+                ctx.lineTo(endX - arrowSize * Math.cos(exitAngleRad + Math.PI / 6), endY - arrowSize * Math.sin(exitAngleRad + Math.PI / 6));
+                ctx.closePath();
+                ctx.fillStyle = this.color;
+                ctx.fill();
             }
-            return false;
-        }
 
-        // Debris class for collision effects
+
+             isPointInside(worldX, worldY) {
+                 const dx = this.x - worldX;
+                 const dy = this.y - worldY;
+                 // Use a slightly larger radius for clicking
+                 const clickRadius = this.radius * 1.1;
+                 return dx * dx + dy * dy <= clickRadius * clickRadius;
+             }
+
+             // Calculate position slightly outside the portal exit
+             getExitPoint() {
+                 const exitAngleRad = this.exitAngle * Math.PI / 180;
+                 const exitOffset = this.radius * 1.1; // Place object just outside
+                 return {
+                     x: this.x + Math.cos(exitAngleRad) * exitOffset,
+                     y: this.y + Math.sin(exitAngleRad) * exitOffset
+                 };
+             }
+         }
+
         class Debris {
             constructor(x, y, vx, vy, color, size, lifetime) {
-                this.x = x;
-                this.y = y;
-                this.vx = vx;
-                this.vy = vy;
-                this.color = color;
-                this.size = size;
-                this.maxLifetime = lifetime;
-                this.lifetime = lifetime;
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.color = color; this.size = size;
+                this.maxLifetime = lifetime; this.lifetime = lifetime;
                 this.alpha = 1;
+                this.teleportCooldown = 0; // New
             }
-
             update(dt) {
-                this.x += this.vx * dt;
-                this.y += this.vy * dt;
+                if (this.teleportCooldown > 0) this.teleportCooldown--;
+                this.x += this.vx * dt; this.y += this.vy * dt;
                 this.lifetime -= dt;
-                this.alpha = this.lifetime / this.maxLifetime;
+                this.alpha = Math.max(0, this.lifetime / this.maxLifetime);
                 return this.lifetime > 0;
             }
-
-            draw(ctx) {
-                const screenPos = worldToScreen(this.x, this.y);
-                const screenSize = this.size * zoomLevel;
-                
-                // Skip if off-screen
-                if (screenPos.x + screenSize < 0 || 
-                    screenPos.x - screenSize > canvas.width ||
-                    screenPos.y + screenSize < 0 || 
-                    screenPos.y - screenSize > canvas.height) {
-                    return;
-                }
-
-                ctx.beginPath();
-                ctx.arc(screenPos.x, screenPos.y, screenSize, 0, Math.PI * 2);
-                ctx.fillStyle = this.color.replace(')', `, ${this.alpha})`).replace('rgb', 'rgba');
-                ctx.fill();
-            }
+            draw(ctx) { /* ... (keep existing draw logic) ... */
+                 const screenPos = worldToScreen(this.x, this.y);
+                 const screenSize = this.size * zoomLevel;
+                 if (screenPos.x + screenSize < 0 || screenPos.x - screenSize > canvas.width ||
+                     screenPos.y + screenSize < 0 || screenPos.y - screenSize > canvas.height || this.alpha <= 0) {
+                     return;
+                 }
+                 ctx.beginPath();
+                 ctx.arc(screenPos.x, screenPos.y, Math.max(0.5, screenSize), 0, Math.PI * 2); // Ensure min size 0.5px
+                 ctx.fillStyle = this.color.replace(')', `, ${this.alpha})`).replace('rgb', 'rgba');
+                 ctx.fill();
+             }
         }
 
-        // Planet class with improved collision handling
         class Planet {
-            constructor(x, y, radius) {
-                this.x = x;
-                this.y = y;
-                this.radius = radius;
-                this.massMultiplier = 1; // Default mass multiplier
-                this.mass = Math.PI * radius * radius * DENSITY * this.massMultiplier;
-                
-                // Initialize with zero velocity unless influenced by nearby planets
-                if (hasNearbyInfluence(x, y)) {
-                    this.vx = (Math.random() - 0.5) * 1;
-                    this.vy = (Math.random() - 0.5) * 1;
-                } else {
-                    this.vx = 0;
-                    this.vy = 0;
-                }
-                
-                this.color = planetColors[Math.floor(Math.random() * planetColors.length)];
-                this.trail = [];
-                this.maxTrailLength = 50;
-            }
+             constructor(x, y, radius) {
+                 this.x = x; this.y = y; this.radius = radius;
+                 this.massMultiplier = 1;
+                 this.mass = Math.PI * radius * radius * DENSITY * this.massMultiplier;
+                 this.vx = 0; this.vy = 0;
+                 if (hasNearbyInfluence(x, y)) {
+                     this.vx = (Math.random() - 0.5) * 1;
+                     this.vy = (Math.random() - 0.5) * 1;
+                 }
+                 this.color = planetColors[Math.floor(Math.random() * planetColors.length)];
+                 this.trail = []; this.maxTrailLength = 50;
+                 this.teleportCooldown = 0; // New
+             }
 
-            clone() {
-                const clone = new Planet(this.x, this.y, this.radius);
-                clone.vx = this.vx;
-                clone.vy = this.vy;
-                clone.mass = this.mass;
-                clone.massMultiplier = this.massMultiplier;
-                clone.color = this.color;
-                return clone;
-            }
+             clone() { /* ... (keep existing clone logic) ... */
+                 const clone = new Planet(this.x, this.y, this.radius);
+                 clone.vx = this.vx; clone.vy = this.vy; clone.mass = this.mass;
+                 clone.massMultiplier = this.massMultiplier; clone.color = this.color;
+                 // Do NOT clone teleportCooldown or trail
+                 return clone;
+              }
 
-            update(planets, dt) {
-                // Add current position to trail (reduced frequency at higher time scales)
-                if (Math.random() < 1/Math.max(1, dt*2)) {
-                    this.trail.push({x: this.x, y: this.y});
-                    if (this.trail.length > this.maxTrailLength) {
-                        this.trail.shift();
-                    }
-                }
+             update(planets, dt) {
+                 if (this.teleportCooldown > 0) this.teleportCooldown--;
 
-                // Apply forces from other planets
-                for (let planet of planets) {
-                    if (planet === this) continue;
-                    
-                    // Calculate distance
-                    const dx = planet.x - this.x;
-                    const dy = planet.y - this.y;
-                    const distanceSquared = dx * dx + dy * dy;
-                    const distance = Math.sqrt(distanceSquared);
-                    
-                    // Skip gravitational calculation if planets are colliding
-                    if (distance < this.radius + planet.radius) {
-                        continue;
-                    }
-                    
-                    // Calculate gravitational force (F = G * m1 * m2 / r^2)
-                    const force = G * this.mass * planet.mass / distanceSquared;
-                    const angle = Math.atan2(dy, dx);
-                    
-                    // Apply acceleration (F = ma, so a = F/m) with time scaling
-                    const ax = force * Math.cos(angle) / this.mass;
-                    const ay = force * Math.sin(angle) / this.mass;
-                    
-                    this.vx += ax * dt;
-                    this.vy += ay * dt;
-                }
+                 // Trail update (existing logic)
+                 if (Math.random() < 1 / Math.max(1, dt * 2)) {
+                     this.trail.push({x: this.x, y: this.y});
+                     if (this.trail.length > this.maxTrailLength) this.trail.shift();
+                 }
 
-                // Update position based on velocity (no slowdown in space) with time scaling
-                this.x += this.vx * dt;
-                this.y += this.vy * dt;
-            }
+                 // Gravity calculation (existing logic)
+                 let ax = 0, ay = 0;
+                 for (let planet of planets) {
+                     if (planet === this) continue;
+                     const dx = planet.x - this.x;
+                     const dy = planet.y - this.y;
+                     const distanceSquared = dx * dx + dy * dy;
+                     if (distanceSquared === 0) continue; // Avoid division by zero
+                     const distance = Math.sqrt(distanceSquared);
+                     if (distance < this.radius + planet.radius) continue; // Skip gravity if colliding
 
-            draw(ctx) {
-                // Convert planet coordinates to screen coordinates
-                const screenPos = worldToScreen(this.x, this.y);
-                const screenRadius = this.radius * zoomLevel;
-                
-                // Skip drawing if planet is off-screen (with buffer)
-                if (screenPos.x + screenRadius < 0 || 
-                    screenPos.x - screenRadius > canvas.width ||
-                    screenPos.y + screenRadius < 0 || 
-                    screenPos.y - screenRadius > canvas.height) {
-                    return;
-                }
+                     const force = G * this.mass * planet.mass / distanceSquared;
+                     const angle = Math.atan2(dy, dx);
+                     ax += force * Math.cos(angle) / this.mass;
+                     ay += force * Math.sin(angle) / this.mass;
+                 }
 
-                // Draw trail
-                if (this.trail.length > 1) {
-                    ctx.beginPath();
-                    const firstPoint = worldToScreen(this.trail[0].x, this.trail[0].y);
-                    ctx.moveTo(firstPoint.x, firstPoint.y);
-                    
-                    for (let i = 1; i < this.trail.length; i++) {
-                        const point = worldToScreen(this.trail[i].x, this.trail[i].y);
-                        ctx.lineTo(point.x, point.y);
-                    }
-                    
-                    ctx.strokeStyle = `rgba(${parseInt(this.color.slice(1, 3), 16)}, 
-                                          ${parseInt(this.color.slice(3, 5), 16)}, 
-                                          ${parseInt(this.color.slice(5, 7), 16)}, 
-                                          0.5)`;
-                    ctx.lineWidth = 2 * zoomLevel;
-                    ctx.stroke();
-                }
+                 // Update velocity and position (existing logic)
+                 this.vx += ax * dt;
+                 this.vy += ay * dt;
+                 this.x += this.vx * dt;
+                 this.y += this.vy * dt;
+             }
 
-                // Draw planet
-                ctx.beginPath();
-                ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
-                
-                // Add gradient for more realistic look
-                const gradient = ctx.createRadialGradient(
-                    screenPos.x - screenRadius/3, screenPos.y - screenRadius/3, 0,
-                    screenPos.x, screenPos.y, screenRadius
-                );
-                gradient.addColorStop(0, '#FFFFFF');
-                gradient.addColorStop(0.3, this.color);
-                gradient.addColorStop(1, `rgb(${parseInt(this.color.slice(1, 3), 16) / 2}, 
-                                           ${parseInt(this.color.slice(3, 5), 16) / 2}, 
-                                           ${parseInt(this.color.slice(5, 7), 16) / 2})`);
-                
-                ctx.fillStyle = gradient;
-                ctx.fill();
-                
-                // Highlight when hovered or selected
-                if (this === hoveredPlanet || this === selectedPlanet) {
-                    ctx.strokeStyle = this === selectedPlanet ? '#00ffff' : 'white';
-                    ctx.lineWidth = (this === selectedPlanet ? 3 : 2) * zoomLevel;
-                    ctx.stroke();
-                }
-                
-                // Show velocity vector if selected
-                if (this === selectedPlanet) {
-                    const velocityScale = 10; // Scale factor for better visibility
-                    const endX = screenPos.x + this.vx * velocityScale;
-                    const endY = screenPos.y + this.vy * velocityScale;
-                    
-                    // Draw velocity line
-                    ctx.beginPath();
-                    ctx.moveTo(screenPos.x, screenPos.y);
-                    ctx.lineTo(endX, endY);
-                    ctx.strokeStyle = '#00ffff';
-                    ctx.lineWidth = 2 * zoomLevel;
-                    ctx.stroke();
-                    
-                    // Draw arrowhead
-                    const arrowSize = 8 * zoomLevel;
-                    const angle = Math.atan2(this.vy, this.vx);
-                    ctx.beginPath();
-                    ctx.moveTo(endX, endY);
-                    ctx.lineTo(
-                        endX - arrowSize * Math.cos(angle - Math.PI/6),
-                        endY - arrowSize * Math.sin(angle - Math.PI/6)
-                    );
-                    ctx.lineTo(
-                        endX - arrowSize * Math.cos(angle + Math.PI/6),
-                        endY - arrowSize * Math.sin(angle + Math.PI/6)
-                    );
-                    ctx.closePath();
-                    ctx.fillStyle = '#00ffff';
-                    ctx.fill();
-                }
-            }
+             draw(ctx) { /* ... (keep existing draw logic, maybe add cooldown indicator?) ... */
+                 const screenPos = worldToScreen(this.x, this.y);
+                 const screenRadius = this.radius * zoomLevel;
+                 if (screenPos.x + screenRadius < 0 || screenPos.x - screenRadius > canvas.width ||
+                     screenPos.y + screenRadius < 0 || screenPos.y - screenRadius > canvas.height) {
+                     return;
+                 }
 
-            isPointInside(worldX, worldY) {
-                const dx = this.x - worldX;
-                const dy = this.y - worldY;
-                return dx * dx + dy * dy <= this.radius * this.radius;
-            }
-        }
+                 // Draw trail (existing)
+                 if (this.trail.length > 1) {
+                     ctx.beginPath();
+                     const firstPoint = worldToScreen(this.trail[0].x, this.trail[0].y);
+                     ctx.moveTo(firstPoint.x, firstPoint.y);
+                     for (let i = 1; i < this.trail.length; i++) {
+                         const point = worldToScreen(this.trail[i].x, this.trail[i].y);
+                         ctx.lineTo(point.x, point.y);
+                     }
+                     const trailColorMatch = this.color.match(/\d+/g);
+                     if (trailColorMatch) {
+                         ctx.strokeStyle = `rgba(${trailColorMatch[0]}, ${trailColorMatch[1]}, ${trailColorMatch[2]}, 0.5)`;
+                     } else {
+                         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'; // Fallback
+                     }
+                     ctx.lineWidth = Math.max(1, 2 * zoomLevel);
+                     ctx.stroke();
+                 }
 
-        // Create explosion debris
-        function createExplosionDebris(x, y, vx, vy, color, radius) {
-            for (let i = 0; i < DEBRIS_COUNT; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 1 + Math.random() * 3;
-                const debrisVx = vx/2 + Math.cos(angle) * speed;
-                const debrisVy = vy/2 + Math.sin(angle) * speed;
-                const size = radius * (0.1 + Math.random() * 0.2);
-                const lifetime = 30 + Math.floor(Math.random() * 60);
-                
-                // Convert hex color to rgba for the debris
-                const r = parseInt(color.slice(1, 3), 16);
-                const g = parseInt(color.slice(3, 5), 16);
-                const b = parseInt(color.slice(5, 7), 16);
-                const rgbaColor = `rgb(${r}, ${g}, ${b})`;
-                
-                debris.push(new Debris(x, y, debrisVx, debrisVy, rgbaColor, size, lifetime));
-            }
-        }
+                 // Draw planet body (gradient) (existing)
+                 ctx.beginPath();
+                 ctx.arc(screenPos.x, screenPos.y, Math.max(1, screenRadius), 0, Math.PI * 2); // Ensure min radius 1px
+                 const gradient = ctx.createRadialGradient(
+                     screenPos.x - screenRadius / 3, screenPos.y - screenRadius / 3, 0,
+                     screenPos.x, screenPos.y, screenRadius);
+                 try {
+                     const r = parseInt(this.color.slice(1, 3), 16);
+                     const g = parseInt(this.color.slice(3, 5), 16);
+                     const b = parseInt(this.color.slice(5, 7), 16);
+                     gradient.addColorStop(0, '#FFFFFF');
+                     gradient.addColorStop(0.3, this.color);
+                     gradient.addColorStop(1, `rgb(${r / 2}, ${g / 2}, ${b / 2})`);
+                 } catch (e) { // Fallback for invalid color
+                     gradient.addColorStop(0, '#FFFFFF');
+                     gradient.addColorStop(1, '#888888');
+                 }
+                 ctx.fillStyle = gradient;
+                 ctx.fill();
 
-        function handleCollisions(dt, simulationPlanets = null) {
+                  // Highlight when hovered or selected (existing)
+                 if (this === hoveredPlanet || this === selectedPlanet) {
+                     ctx.strokeStyle = this === selectedPlanet ? '#00ffff' : 'white';
+                     ctx.lineWidth = Math.max(1, (this === selectedPlanet ? 3 : 2) * zoomLevel);
+                     ctx.stroke();
+                 }
+
+                 // Show velocity vector if selected (existing)
+                 if (this === selectedPlanet) {
+                     const velocityScale = 10 * zoomLevel;
+                     const endX = screenPos.x + this.vx * velocityScale;
+                     const endY = screenPos.y + this.vy * velocityScale;
+                     ctx.beginPath();
+                     ctx.moveTo(screenPos.x, screenPos.y);
+                     ctx.lineTo(endX, endY);
+                     ctx.strokeStyle = '#00ffff';
+                     ctx.lineWidth = Math.max(1, 2 * zoomLevel);
+                     ctx.stroke();
+                     // Draw arrowhead (existing)
+                     const arrowSize = Math.max(2, 8 * zoomLevel);
+                     const angle = Math.atan2(this.vy, this.vx);
+                     ctx.beginPath();
+                     ctx.moveTo(endX, endY);
+                     ctx.lineTo(endX - arrowSize * Math.cos(angle - Math.PI / 6), endY - arrowSize * Math.sin(angle - Math.PI / 6));
+                     ctx.lineTo(endX - arrowSize * Math.cos(angle + Math.PI / 6), endY - arrowSize * Math.sin(angle + Math.PI / 6));
+                     ctx.closePath();
+                     ctx.fillStyle = '#00ffff';
+                     ctx.fill();
+                 }
+
+                 // Optional: Indicate teleport cooldown
+                 if (this.teleportCooldown > 0) {
+                     ctx.beginPath();
+                     ctx.arc(screenPos.x, screenPos.y, screenRadius * 1.2, 0, Math.PI * 2 * (this.teleportCooldown / TELEPORT_COOLDOWN_FRAMES));
+                     ctx.strokeStyle = 'rgba(255, 0, 255, 0.7)'; // Magenta cooldown indicator
+                     ctx.lineWidth = 2 * zoomLevel;
+                     ctx.stroke();
+                 }
+              }
+
+             isPointInside(worldX, worldY) {
+                 const dx = this.x - worldX;
+                 const dy = this.y - worldY;
+                 return dx * dx + dy * dy <= this.radius * this.radius;
+             }
+         }
+
+        // === Helper Functions ===
+
+        function screenToWorld(screenX, screenY) { /* ... (keep existing) ... */
+             return {
+                 x: (screenX - canvas.width / 2) / zoomLevel + cameraX,
+                 y: (screenY - canvas.height / 2) / zoomLevel + cameraY
+             };
+         }
+        function worldToScreen(worldX, worldY) { /* ... (keep existing) ... */
+             return {
+                 x: (worldX - cameraX) * zoomLevel + canvas.width / 2,
+                 y: (worldY - cameraY) * zoomLevel + canvas.height / 2
+             };
+         }
+        function hasNearbyInfluence(x, y) { /* ... (keep existing) ... */
+             for (let planet of planets) {
+                 const dx = planet.x - x;
+                 const dy = planet.y - y;
+                 const distance = Math.sqrt(dx * dx + dy * dy);
+                 if (distance < INFLUENCE_THRESHOLD) return true;
+             }
+             return false;
+         }
+        function createExplosionDebris(x, y, vx, vy, color, radius) { /* ... (keep existing) ... */
+             for (let i = 0; i < DEBRIS_COUNT; i++) {
+                 const angle = Math.random() * Math.PI * 2;
+                 const speed = 1 + Math.random() * 3;
+                 const debrisVx = vx / 2 + Math.cos(angle) * speed;
+                 const debrisVy = vy / 2 + Math.sin(angle) * speed;
+                 const size = radius * (0.1 + Math.random() * 0.2);
+                 const lifetime = 30 + Math.floor(Math.random() * 60); // Frames, approx 0.5-1.5s at 60fps
+                 let rgbaColor = 'rgb(200, 200, 200)'; // Default gray
+                 try {
+                     const r = parseInt(color.slice(1, 3), 16);
+                     const g = parseInt(color.slice(3, 5), 16);
+                     const b = parseInt(color.slice(5, 7), 16);
+                     rgbaColor = `rgb(${r}, ${g}, ${b})`;
+                 } catch (e) { console.warn("Invalid color for debris:", color); }
+                 debris.push(new Debris(x, y, debrisVx, debrisVy, rgbaColor, size, lifetime));
+             }
+         }
+        function resetCamera() { /* ... (keep existing) ... */
+             cameraX = 0; cameraY = 0; zoomLevel = 1;
+             // Clear trails on camera reset might be nice
+             planets.forEach(p => p.trail = []);
+             simulationPaths = [];
+         }
+
+        // === Collision Handling ===
+        function handleCollisions(dt, simulationPlanets = null) { /* ... (keep existing, ensure it uses the passed array or global planets) ... */
             const planetsArray = simulationPlanets || planets;
             const planetsToRemove = [];
-            
+            const debrisToAdd = []; // Collect debris to add outside the loop if not simulating
+
             for (let i = 0; i < planetsArray.length; i++) {
                 for (let j = i + 1; j < planetsArray.length; j++) {
                     const planet1 = planetsArray[i];
                     const planet2 = planetsArray[j];
-                    
-                    // Skip if either planet is already marked for removal
-                    if (planetsToRemove.includes(planet1) || planetsToRemove.includes(planet2)) {
-                        continue;
-                    }
-                    
-                    // Calculate distance between planets
+
+                    if (planetsToRemove.includes(planet1) || planetsToRemove.includes(planet2)) continue;
+
                     const dx = planet2.x - planet1.x;
                     const dy = planet2.y - planet1.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     const minDistance = planet1.radius + planet2.radius;
-                    
-                    // Check for collision
+
                     if (distance < minDistance) {
-                        // Calculate size ratio to determine collision type
-                        const sizeRatio = Math.min(planet1.radius, planet2.radius) / 
-                                        Math.max(planet1.radius, planet2.radius);
-                        
-                        // Normalized collision vector
-                        const nx = dx / distance;
-                        const ny = dy / distance;
-                        
-                        // Relative velocity
+                        const sizeRatio = Math.min(planet1.radius, planet2.radius) / Math.max(planet1.radius, planet2.radius);
+                        const nx = dx / distance; const ny = dy / distance;
                         const relativeVelocityX = planet2.vx - planet1.vx;
                         const relativeVelocityY = planet2.vy - planet1.vy;
-                        
-                        // Relative velocity along collision normal
                         const relativeVelocityAlongNormal = relativeVelocityX * nx + relativeVelocityY * ny;
-                        
-                        // Do not resolve if velocities are separating
-                        if (relativeVelocityAlongNormal > 0) continue;
-                        
-                        // Calculate impulse scalar
-                        const restitution = RESTITUTION;
-                        const j = -(1 + restitution) * relativeVelocityAlongNormal;
-                        const impulse = j / (1/planet1.mass + 1/planet2.mass);
-                        
-                        // Apply impulse
-                        const impulseX = impulse * nx;
-                        const impulseY = impulse * ny;
-                        
-                        // Save original velocities for debris
-                        const p1vx = planet1.vx;
-                        const p1vy = planet1.vy;
-                        const p2vx = planet2.vx;
-                        const p2vy = planet2.vy;
-                        
-                        // Update velocities
-                        planet1.vx -= impulseX / planet1.mass;
-                        planet1.vy -= impulseY / planet1.mass;
-                        planet2.vx += impulseX / planet2.mass;
-                        planet2.vy += impulseY / planet2.mass;
-                        
-                        // Move planets apart to prevent sticking
-                        const overlap = (minDistance - distance) * 0.5;
-                        planet1.x -= overlap * nx;
-                        planet1.y -= overlap * ny;
-                        planet2.x += overlap * nx;
-                        planet2.y += overlap * ny;
-                        
-                        // Handle different collision types based on size ratio
-                        if (sizeRatio >= SIZE_RATIO_THRESHOLD) {
-                            // Similar-sized planets: both shrink
+
+                        if (relativeVelocityAlongNormal > 0) continue; // Moving apart
+
+                        const j = -(1 + RESTITUTION) * relativeVelocityAlongNormal / (1 / planet1.mass + 1 / planet2.mass);
+                        const impulseX = j * nx; const impulseY = j * ny;
+
+                        const p1vx_old = planet1.vx; const p1vy_old = planet1.vy;
+                        const p2vx_old = planet2.vx; const p2vy_old = planet2.vy;
+
+                        planet1.vx -= impulseX / planet1.mass; planet1.vy -= impulseY / planet1.mass;
+                        planet2.vx += impulseX / planet2.mass; planet2.vy += impulseY / planet2.mass;
+
+                        // Separation
+                        const overlap = (minDistance - distance) * 0.51; // Slightly more than half to ensure separation
+                        planet1.x -= overlap * nx; planet1.y -= overlap * ny;
+                        planet2.x += overlap * nx; planet2.y += overlap * ny;
+
+                        // Collision effects
+                        if (sizeRatio >= SIZE_RATIO_THRESHOLD) { // Similar size
+                            const avgRadius = (planet1.radius + planet2.radius) / 2; // For debris size scaling
                             planet1.radius *= SIZE_REDUCTION;
                             planet2.radius *= SIZE_REDUCTION;
-                            
-                            // Recalculate masses
                             planet1.mass = Math.PI * planet1.radius * planet1.radius * DENSITY * planet1.massMultiplier;
                             planet2.mass = Math.PI * planet2.radius * planet2.radius * DENSITY * planet2.massMultiplier;
-                            
-                            // Create explosion debris (only in real simulation)
+
                             if (!simulationPlanets) {
                                 const collisionX = (planet1.x + planet2.x) / 2;
                                 const collisionY = (planet1.y + planet2.y) / 2;
-                                createExplosionDebris(collisionX, collisionY, 
-                                                    (p1vx + p2vx)/2, (p1vy + p2vy)/2,
-                                                    planet1.color, Math.min(planet1.radius, planet2.radius));
+                                debrisToAdd.push({ x: collisionX, y: collisionY, vx: (p1vx_old + p2vx_old) / 2, vy: (p1vy_old + p2vy_old) / 2, color: planet1.color, radius: avgRadius * 0.5 });
                             }
-                            
-                            // Remove if too small
-                            if (planet1.radius < MIN_PLANET_RADIUS / 2) {
-                                planetsToRemove.push(planet1);
+
+                            if (planet1.radius < MIN_PLANET_RADIUS / 2) planetsToRemove.push(planet1);
+                            if (planet2.radius < MIN_PLANET_RADIUS / 2) planetsToRemove.push(planet2);
+
+                        } else { // Different size - smaller destroyed
+                            const smaller = planet1.radius < planet2.radius ? planet1 : planet2;
+                            if (!planetsToRemove.includes(smaller)) {
+                                planetsToRemove.push(smaller);
                                 if (!simulationPlanets) {
-                                    createExplosionDebris(planet1.x, planet1.y, p1vx, p1vy, planet1.color, planet1.radius);
+                                    debrisToAdd.push({ x: smaller.x, y: smaller.y, vx: smaller.vx, vy: smaller.vy, color: smaller.color, radius: smaller.radius });
                                 }
                             }
-                            if (planet2.radius < MIN_PLANET_RADIUS / 2) {
-                                planetsToRemove.push(planet2);
-                                if (!simulationPlanets) {
-                                    createExplosionDebris(planet2.x, planet2.y, p2vx, p2vy, planet2.color, planet2.radius);
-                                }
-                            }
-                        } else {
-                            // Different-sized planets: smaller one is destroyed
-                            const smallerPlanet = planet1.radius < planet2.radius ? planet1 : planet2;
-                            const largerPlanet = planet1.radius < planet2.radius ? planet2 : planet1;
-                            
-                            // Create debris for smaller planet
-                            if (!simulationPlanets) {
-                                createExplosionDebris(smallerPlanet.x, smallerPlanet.y, 
-                                                    smallerPlanet.vx, smallerPlanet.vy,
-                                                    smallerPlanet.color, smallerPlanet.radius);
-                            }
-                            
-                            planetsToRemove.push(smallerPlanet);
                         }
+                        // Clear trails after collision
+                        planet1.trail = [];
+                        planet2.trail = [];
                     }
                 }
             }
-            
-            // Remove planets marked for deletion
-            if (planetsToRemove.length > 0) {
-                if (simulationPlanets) {
-                    return planetsArray.filter(planet => !planetsToRemove.includes(planet));
-                } else {
-                    planets = planets.filter(planet => !planetsToRemove.includes(planet));
-                }
+
+             // Process removals and debris creation (only for live sim)
+             if (!simulationPlanets) {
+                 planets = planetsArray.filter(p => !planetsToRemove.includes(p));
+                 debrisToAdd.forEach(d => createExplosionDebris(d.x, d.y, d.vx, d.vy, d.color, d.radius));
+                 // If selected planet was removed, close editor
+                 if (selectedPlanet && planetsToRemove.includes(selectedPlanet)) {
+                     closePlanetEditor();
+                     selectedPlanet = null;
+                 }
+                 if (selectedPortal && planetsToRemove.some(p => p === selectedPortal)) { // Unlikely but possible if portals became objects
+                      closePortalPropertiesEditor();
+                      selectedPortal = null;
+                 }
+             } else {
+                 // For simulation, just return the filtered array
+                 return planetsArray.filter(p => !planetsToRemove.includes(p));
+             }
+        }
+
+        // === Path Simulation ===
+        async function simulatePaths() { /* ... (keep existing, maybe add warning about portals) ... */
+             if (isSimulating || planets.length === 0 || isPlanetEditorOpen || isPortalEditorOpen || isPortalPropertiesEditorOpen || isPaused) return;
+             if (portalPairs.length > 0) {
+                 console.warn("Path simulation does not account for portals. Predictions may be inaccurate.");
+             }
+
+             isSimulating = true;
+             simulationInfo.style.display = 'block';
+             simulationProgress.textContent = '0%';
+
+             let simulationPlanets = planets.map(p => p.clone());
+             simulationPaths = simulationPlanets.map(() => []); // Reset paths for current planets
+
+             // Store initial positions for the *cloned* planets
+             simulationPlanets.forEach((p, i) => simulationPaths[i].push({ x: p.x, y: p.y }));
+
+             const chunkSize = 50; // Simulate more steps per frame
+             const totalSteps = SIMULATION_STEPS;
+
+             for (let step = 0; step < totalSteps; step += chunkSize) {
+                 const progress = Math.floor(((step + chunkSize) / totalSteps) * 100);
+                 simulationProgress.textContent = `${Math.min(100, progress)}%`;
+
+                 for (let i = 0; i < chunkSize && step + i < totalSteps; i++) {
+                      // --- Physics Update (Simplified Verlet Integration) ---
+                     for (let planet of simulationPlanets) {
+                         // Calculate forces (same as live sim)
+                         let ax = 0, ay = 0;
+                         for (let other of simulationPlanets) {
+                             if (planet === other) continue;
+                             const dx = other.x - planet.x; const dy = other.y - planet.y;
+                             const distSq = dx * dx + dy * dy;
+                             if (distSq === 0) continue;
+                             const dist = Math.sqrt(distSq);
+                             if (dist < planet.radius + other.radius) continue; // Skip gravity if colliding
+
+                             const force = G * planet.mass * other.mass / distSq;
+                             const angle = Math.atan2(dy, dx);
+                             ax += force * Math.cos(angle) / planet.mass;
+                             ay += force * Math.sin(angle) / planet.mass;
+                         }
+
+                         // Update velocity (first half)
+                         planet.vx += ax * SIMULATION_DT * 0.5;
+                         planet.vy += ay * SIMULATION_DT * 0.5;
+                         // Update position
+                         planet.x += planet.vx * SIMULATION_DT;
+                         planet.y += planet.vy * SIMULATION_DT;
+                         // Recalculate forces at new position (needed for better accuracy, but omitted for performance here)
+                         // Update velocity (second half - using same acceleration for simplicity)
+                         planet.vx += ax * SIMULATION_DT * 0.5;
+                         planet.vy += ay * SIMULATION_DT * 0.5;
+                     }
+
+                     // Handle Collisions within the simulation
+                     simulationPlanets = handleCollisions(SIMULATION_DT, simulationPlanets);
+
+                     // Store path point for each *remaining* simulated planet
+                      // Need to map remaining sim planets back to original indices if planets were destroyed
+                      // This is tricky. Let's simplify: store paths based on the current simPlanets array.
+                      // This means paths might not correspond 1:1 with original planets if collisions occur.
+                     simulationPlanets.forEach((p, index) => {
+                          if (!simulationPaths[index]) simulationPaths[index] = []; // Should already exist but safety check
+                          simulationPaths[index].push({ x: p.x, y: p.y });
+                     });
+
+
+                     if (simulationPlanets.length === 0) break; // Stop chunk if no planets left
+                 }
+
+                 await new Promise(resolve => setTimeout(resolve, 0)); // Allow UI update
+
+                 if (simulationPlanets.length === 0) break; // Stop outer loop if no planets left
+             }
+
+             simulationProgress.textContent = "100%";
+             setTimeout(() => {
+                 simulationInfo.style.display = 'none';
+                 isSimulating = false;
+             }, 1000);
+         }
+
+        // === Portal Teleportation ===
+        function handlePortalTeleportation(objects, dt) {
+             if (portalPairs.length === 0) return;
+
+             for (const obj of objects) {
+                 if (obj.teleportCooldown > 0) continue; // Skip if on cooldown
+
+                 for (const pair of portalPairs) {
+                     for (const portal of [pair.portal1, pair.portal2]) {
+                         if (!portal || portal.isPending || !portal.linkedPortal) continue; // Skip if portal isn't fully set up
+
+                         const dx = obj.x - portal.x;
+                         const dy = obj.y - portal.y;
+                         const distanceSq = dx * dx + dy * dy;
+
+                         // Check if object's center entered the portal radius
+                         if (distanceSq <= portal.radius * portal.radius) {
+                             const targetPortal = portal.linkedPortal;
+                             const exitPoint = targetPortal.getExitPoint();
+                             const exitAngleRad = targetPortal.exitAngle * Math.PI / 180;
+
+                             // Teleport!
+                             obj.x = exitPoint.x;
+                             obj.y = exitPoint.y;
+                             obj.vx = Math.cos(exitAngleRad) * targetPortal.exitSpeed;
+                             obj.vy = Math.sin(exitAngleRad) * targetPortal.exitSpeed;
+
+                             // Set cooldown
+                             obj.teleportCooldown = TELEPORT_COOLDOWN_FRAMES;
+
+                             // Clear object's trail after teleporting
+                             if (obj.trail) obj.trail = [];
+
+                             // Exit loops since teleport happened
+                             return; // Process one teleport per object per frame max
+                         }
+                     }
+                 }
+             }
+         }
+
+        // === Editor Functions ===
+
+        // --- Planet Editor ---
+        function openPlanetEditor(planet) { /* ... (keep existing logic, ensure it closes other editors) ... */
+             if (isPlanetEditorOpen || isPortalEditorOpen || isPortalPropertiesEditorOpen) return;
+             closePortalEditor(); // Ensure others are closed
+             closePortalPropertiesEditor();
+
+             isPlanetEditorOpen = true;
+             selectedPlanet = planet;
+             isPaused = true;
+             previousTimeScale = timeScale;
+             timeScale = 0;
+             pauseIndicator.classList.add('active');
+
+             planetSize.value = planet.radius;
+             planetMass.value = planet.massMultiplier || 1;
+             planetColor.value = planet.color;
+             const speed = Math.sqrt(planet.vx * planet.vx + planet.vy * planet.vy);
+             let direction = Math.atan2(planet.vy, planet.vx) * 180 / Math.PI;
+             if (direction < 0) direction += 360;
+             speedValue.value = speed.toFixed(1);
+             directionValue.value = direction.toFixed(0);
+
+             updatePlanetVelocityArrow(); // Use the specific update function
+             velocityPlanet.style.backgroundColor = planet.color;
+             planetEditor.style.display = 'block';
+         }
+        function closePlanetEditor() { /* ... (keep existing logic) ... */
+             if (!isPlanetEditorOpen) return;
+             isPlanetEditorOpen = false;
+             isPlanetEditorDragging = false;
+             dragPlanetBtn.classList.remove('active'); // Use specific button ID if changed
+             selectedPlanet = null;
+             planetEditor.style.display = 'none';
+
+             // Only resume if no other editor is open and not paused by user
+             if (!isPortalEditorOpen && !isPortalPropertiesEditorOpen && !pauseOverlay.classList.contains('active')) {
+                 isPaused = false;
+                 timeScale = previousTimeScale;
+                 pauseIndicator.classList.remove('active');
+             }
+         }
+        function applyPlanetEditorChanges() { /* ... (keep existing logic) ... */
+              if (!selectedPlanet) return;
+             selectedPlanet.radius = parseFloat(planetSize.value);
+             selectedPlanet.massMultiplier = parseFloat(planetMass.value);
+             selectedPlanet.mass = Math.PI * selectedPlanet.radius * selectedPlanet.radius * DENSITY * selectedPlanet.massMultiplier;
+             selectedPlanet.color = planetColor.value;
+             const speed = parseFloat(speedValue.value);
+             const directionRad = parseFloat(directionValue.value) * Math.PI / 180;
+             selectedPlanet.vx = speed * Math.cos(directionRad);
+             selectedPlanet.vy = speed * Math.sin(directionRad);
+             selectedPlanet.trail = []; // Clear trail on change
+             simulationPaths = []; // Invalidate simulation
+             updatePlanetVelocityArrow(); // Update visualizer
+             velocityPlanet.style.backgroundColor = selectedPlanet.color; // Update marker color
+         }
+        function updatePlanetVelocityArrow() { /* ... (keep existing logic) ... */
+             if (!selectedPlanet) return;
+             const speed = parseFloat(speedValue.value);
+             const direction = parseFloat(directionValue.value); // Degrees
+             const directionRad = direction * Math.PI / 180;
+             const maxLength = 40; // px
+             const arrowLength = Math.min(speed * 8, maxLength); // Adjust multiplier as needed
+
+             velocityArrow.style.width = arrowLength + 'px';
+             velocityArrow.style.transform = `translate(0, -50%) rotate(${direction}deg)`; // Center vertically before rotating
+             velocityArrow.style.borderLeftWidth = `${Math.max(1, arrowLength)}px`; // Ensure positive width
+             velocityArrow.style.borderLeftColor = planetColor.value; // Use current color picker value
+         }
+
+        // --- Portal Editor (Main) ---
+        function openPortalEditor() {
+             if (isPlanetEditorOpen || isPortalEditorOpen || isPortalPropertiesEditorOpen) return;
+             closePlanetEditor();
+             closePortalPropertiesEditor();
+
+             isPortalEditorOpen = true;
+             isPaused = true; // Pause simulation while placing portals
+             previousTimeScale = timeScale;
+             timeScale = 0;
+             pauseIndicator.classList.add('active');
+
+             // Reset state
+             if (pendingPortal1) { // Cancel pending portal if editor closed/reopened
+                 pendingPortal1 = null;
+             }
+             updatePortalEditorButtons();
+             portalEditorInfo.textContent = "Click 'Create Portal 1' to begin.";
+             portalEditor.style.display = 'block';
+        }
+        function closePortalEditor() {
+            if (!isPortalEditorOpen) return;
+            isPortalEditorOpen = false;
+            portalEditor.style.display = 'none';
+
+            // Clean up pending portal if editor is closed without finishing
+            if (pendingPortal1) {
+                pendingPortal1 = null;
             }
-            
-            return simulationPlanets || planets;
-        }
 
-       // Improved path simulation with proper collision physics
-    async function simulatePaths() {
-        if (isSimulating || planets.length === 0 || isEditorOpen || isPaused) return;
-        
-        isSimulating = true;
-        simulationInfo.style.display = 'block';
-        
-        // Clone current planets for simulation
-        let simulationPlanets = planets.map(planet => planet.clone());
-        simulationPaths = planets.map(() => []);
-        
-        // Store initial positions
-        for (let j = 0; j < simulationPlanets.length; j++) {
-            simulationPaths[j].push({
-                x: simulationPlanets[j].x,
-                y: simulationPlanets[j].y
-            });
-        }
-
-        const chunkSize = 20;
-        const totalSteps = SIMULATION_STEPS;
-        
-        for (let step = 0; step < totalSteps; step += chunkSize) {
-            // Update progress indicator
-            const progress = Math.floor((step / totalSteps) * 100);
-            simulationProgress.textContent = `${progress}%`;
-            
-            // Run a chunk of simulation steps with better physics
-            for (let i = 0; i < chunkSize && step + i < totalSteps; i++) {
-                // Update planet positions with proper physics
-                for (let planet of simulationPlanets) {
-                    // Reset acceleration each frame
-                    planet.ax = 0;
-                    planet.ay = 0;
-                    
-                    // Calculate gravitational forces from all other planets
-                    for (let other of simulationPlanets) {
-                        if (planet === other) continue;
-                        
-                        const dx = other.x - planet.x;
-                        const dy = other.y - planet.y;
-                        const distanceSq = dx * dx + dy * dy;
-                        const distance = Math.sqrt(distanceSq);
-                        
-                        // Only apply gravity if not colliding
-                        if (distance > planet.radius + other.radius) {
-                            const force = G * planet.mass * other.mass / distanceSq;
-                            const angle = Math.atan2(dy, dx);
-                            
-                            planet.ax += force * Math.cos(angle) / planet.mass;
-                            planet.ay += force * Math.sin(angle) / planet.mass;
-                        }
-                    }
-                    
-                    // Update velocity (half-step)
-                    planet.vx += planet.ax * SIMULATION_DT * 0.5;
-                    planet.vy += planet.ay * SIMULATION_DT * 0.5;
-                    
-                    // Update position
-                    planet.x += planet.vx * SIMULATION_DT;
-                    planet.y += planet.vy * SIMULATION_DT;
-                    
-                    // Update velocity (second half-step)
-                    planet.vx += planet.ax * SIMULATION_DT * 0.5;
-                    planet.vy += planet.ay * SIMULATION_DT * 0.5;
-                }
-                
-                // Handle collisions with proper physics
-                simulationPlanets = handleCollisions(SIMULATION_DT, simulationPlanets);
-                
-                // Store positions after physics update
-                for (let j = 0; j < simulationPlanets.length; j++) {
-                    simulationPaths[j].push({
-                        x: simulationPlanets[j].x,
-                        y: simulationPlanets[j].y
-                    });
-                }
-                
-                // If no planets left, end simulation
-                if (simulationPlanets.length === 0) break;
+            // Only resume if no other editor is open and not paused by user
+            if (!isPlanetEditorOpen && !isPortalPropertiesEditorOpen && !pauseOverlay.classList.contains('active')) {
+                isPaused = false;
+                timeScale = previousTimeScale;
+                pauseIndicator.classList.remove('active');
             }
-            
-            // Allow UI to update
-            await new Promise(resolve => setTimeout(resolve, 0));
-            
-            // If no planets left, end simulation
-            if (simulationPlanets.length === 0) break;
         }
-        
-        // Finalize progress
-        simulationProgress.textContent = "100%";
-        
-        // Hide info panel after a short delay
-        setTimeout(() => {
-            simulationInfo.style.display = 'none';
-            isSimulating = false;
-        }, 1000);
-    }
-
-
-        // Create initial planets
-        function createRandomPlanet() {
-            const radius = MIN_PLANET_RADIUS + Math.random() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
-            const x = (Math.random() - 0.5) * canvas.width;
-            const y = (Math.random() - 0.5) * canvas.height;
-            return new Planet(x, y, radius);
+        function updatePortalEditorButtons() {
+            createPortal1Btn.disabled = !!pendingPortal1;
+            createPortal2Btn.disabled = !pendingPortal1;
+            deleteAllPortalsBtn.disabled = portalPairs.length === 0 && !pendingPortal1;
         }
+        function createPortal(isPortal1) {
+             const worldCoords = screenToWorld(mouseX, mouseY);
+             const newPortal = new Portal(worldCoords.x, worldCoords.y, nextPortalId++);
 
-        // Initialize with a few planets
-        for (let i = 0; i < 5; i++) {
-            planets.push(createRandomPlanet());
+             if (isPortal1) {
+                 pendingPortal1 = newPortal;
+                 portalEditorInfo.textContent = `Portal 1 created (ID ${newPortal.id}). Now place Portal 2.`;
+             } else {
+                 if (!pendingPortal1) return; // Should not happen if UI is correct
+                 // Link portals
+                 newPortal.linkedPortal = pendingPortal1;
+                 pendingPortal1.linkedPortal = newPortal;
+                 newPortal.isPending = false;
+                 pendingPortal1.isPending = false;
+
+                 // Add pair to list
+                 portalPairs.push({ portal1: pendingPortal1, portal2: newPortal });
+                 portalEditorInfo.textContent = `Portal pair (IDs ${pendingPortal1.id} & ${newPortal.id}) created! Create another pair?`;
+                 pendingPortal1 = null; // Reset for next pair
+             }
+             updatePortalEditorButtons();
         }
+        function deleteAllPortals() {
+             portalPairs = [];
+             pendingPortal1 = null;
+             if (selectedPortal) { // If properties editor was open for a deleted portal
+                 closePortalPropertiesEditor();
+                 selectedPortal = null;
+             }
+             hoveredPortal = null;
+             updatePortalEditorButtons();
+             portalEditorInfo.textContent = "All portals deleted. Click 'Create Portal 1'.";
+         }
 
-        // Handle window resize
-        window.addEventListener('resize', function() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
+        // --- Portal Properties Editor ---
+        function openPortalPropertiesEditor(portal) {
+             if (isPlanetEditorOpen || isPortalEditorOpen || isPortalPropertiesEditorOpen || !portal || portal.isPending) return;
+             closePlanetEditor();
+             closePortalEditor();
 
-        // Track mouse position
-        canvas.addEventListener('mousemove', function(event) {
-            mouseX = event.clientX;
-            mouseY = event.clientY;
+             isPortalPropertiesEditorOpen = true;
+             selectedPortal = portal;
+             isPaused = true;
+             previousTimeScale = timeScale;
+             timeScale = 0;
+             pauseIndicator.classList.add('active');
+
+             // Populate editor fields
+             portalPropSize.value = portal.radius;
+             portalPropColor.value = portal.color;
+             portalPropSpeed.value = portal.exitSpeed.toFixed(1);
+             portalPropDirection.value = portal.exitAngle.toFixed(0); // Assuming angle stored in degrees
+
+             updatePortalPropertiesVisuals();
+             portalPropertiesEditor.style.display = 'block';
+        }
+        function closePortalPropertiesEditor() {
+             if (!isPortalPropertiesEditorOpen) return;
+             isPortalPropertiesEditorOpen = false;
+             isPortalDragging = false;
+             dragPortalPropBtn.classList.remove('active'); // Use specific button ID
+             selectedPortal = null;
+             portalPropertiesEditor.style.display = 'none';
+
+             // Only resume if no other editor is open and not paused by user
+             if (!isPlanetEditorOpen && !isPortalEditorOpen && !pauseOverlay.classList.contains('active')) {
+                 isPaused = false;
+                 timeScale = previousTimeScale;
+                 pauseIndicator.classList.remove('active');
+             }
+         }
+        function applyPortalPropertiesChanges() {
+             if (!selectedPortal) return;
+             selectedPortal.radius = parseFloat(portalPropSize.value);
+             selectedPortal.color = portalPropColor.value;
+             selectedPortal.exitSpeed = parseFloat(portalPropSpeed.value);
+             selectedPortal.exitAngle = parseFloat(portalPropDirection.value); // Stored as degrees
+             updatePortalPropertiesVisuals(); // Update visualizer based on changes
+         }
+        function updatePortalPropertiesVisuals() {
+             if (!selectedPortal) return;
+             const color = portalPropColor.value;
+             const speed = parseFloat(portalPropSpeed.value);
+             const direction = parseFloat(portalPropDirection.value); // Degrees
+
+             portalPropVizMarker.style.backgroundColor = color; // Center marker color
+
+             const maxLength = 40; // px
+             const arrowLength = Math.min(speed * 15, maxLength); // Adjust multiplier
+
+             portalPropVizArrow.style.width = arrowLength + 'px';
+             portalPropVizArrow.style.transform = `translate(0, -50%) rotate(${direction}deg)`; // Center vertically
+             portalPropVizArrow.style.borderLeftWidth = `${Math.max(1, arrowLength)}px`;
+             portalPropVizArrow.style.borderLeftColor = color;
+         }
+
+        // === Setup Functions ===
+
+        function setupTimeControls() { /* ... (keep existing logic) ... */
+             // Ensure correct button is active initially based on timeScale
+             timeButtons.forEach(btn => {
+                 btn.classList.remove('active');
+                 if (parseFloat(btn.getAttribute('data-speed')) === timeScale) {
+                     btn.classList.add('active');
+                     previousTimeScale = timeScale; // Sync previous time scale
+                 }
+                 btn.addEventListener('click', function() {
+                     if (isPaused && !isPlanetEditorOpen && !isPortalEditorOpen && !isPortalPropertiesEditorOpen) return; // Prevent change if paused manually
+
+                     timeButtons.forEach(b => b.classList.remove('active'));
+                     this.classList.add('active');
+                     timeScale = parseFloat(this.getAttribute('data-speed'));
+                     previousTimeScale = timeScale; // Update previous when changed by user
+
+                     // If an editor is open, changing speed here should probably resume? Or not? Let's keep it paused.
+                     // If paused MANUALLY (via P), changing speed unpauses.
+                      if (isPaused && pauseOverlay.classList.contains('active')) {
+                          togglePause(); // Unpause if manually paused
+                      } else if (isPaused && (isPlanetEditorOpen || isPortalEditorOpen || isPortalPropertiesEditorOpen)) {
+                           // If editor open, just store the new speed for when it closes
+                           previousTimeScale = timeScale;
+                           timeScale = 0; // Remain paused
+                      }
+                 });
+             });
+         }
+        function loadKeybindings() { /* ... (keep existing logic) ... */
+              const savedBindings = localStorage.getItem('spaceSimKeybindings');
+              if (savedBindings) {
+                  try {
+                      const loaded = JSON.parse(savedBindings);
+                      // Ensure all keys exist, fallback to default if missing
+                      keybindings = { ...keybindings, ...loaded };
+                  } catch (e) { console.error('Error loading keybindings:', e); }
+              }
+         }
+        function saveKeybindings() { /* ... (keep existing logic) ... */
+              localStorage.setItem('spaceSimKeybindings', JSON.stringify(keybindings));
+         }
+        function updateKeybindDisplay() { /* ... (keep existing, update control hint display too) ... */
+             for (const [action, key] of Object.entries(keybindings)) {
+                 const keyElement = document.getElementById(`${action}Key`);
+                 if (keyElement) keyElement.textContent = key.toUpperCase();
+                 // Update controls list display
+                 const keyDisplayElement = document.getElementById(`${action}KeyDisplay`);
+                 if (keyDisplayElement) keyDisplayElement.textContent = key.toUpperCase();
+             }
+         }
+        function resetKeybindings() { /* ... (keep existing, add new default) ... */
+              keybindings = {
+                  createPlanet: 'n', deletePlanet: 'd', editPlanet: 'e',
+                  simulatePaths: 'q', openPortalEditor: 'o', togglePause: 'p', resetCamera: 'r'
+              };
+              updateKeybindDisplay(); saveKeybindings();
+         }
+        function togglePause(forceState = null) { /* ... (Modify to handle multiple pause reasons) ... */
+             const shouldBePaused = forceState !== null ? forceState : (!isPaused || isPlanetEditorOpen || isPortalEditorOpen || isPortalPropertiesEditorOpen); // Pause if opening editor or toggling from unpaused
+
+              // Check if any editor requires pause state
+              const editorRequiresPause = isPlanetEditorOpen || isPortalEditorOpen || isPortalPropertiesEditorOpen;
+
+              if (shouldBePaused) {
+                  if (!isPaused) { // Only store previous timescale if wasn't already paused
+                      previousTimeScale = timeScale;
+                  }
+                  isPaused = true;
+                  timeScale = 0;
+                  pauseIndicator.classList.add('active');
+                  if (!editorRequiresPause) { // Only show pause menu if paused manually
+                      pauseOverlay.classList.add('active');
+                  }
+              } else { // Unpausing
+                  // Only unpause if no editor requires pause
+                  if (!editorRequiresPause) {
+                      isPaused = false;
+                      timeScale = previousTimeScale;
+                      pauseIndicator.classList.remove('active');
+                      pauseOverlay.classList.remove('active'); // Hide menu
+                      // Cancel keybind listening if menu closed
+                      if (currentListeningElement) {
+                          currentListeningElement.classList.remove('listening');
+                          updateKeybindDisplay(); // Restore original key text
+                          currentListeningElement = null;
+                      }
+                  } else {
+                       // Cannot fully unpause due to editor, keep state paused but maybe hide overlay if applicable
+                       pauseOverlay.classList.remove('active');
+                  }
+              }
+         }
+        function setupPauseMenu() { /* ... (keep existing logic, add new keybind item) ... */
+             resumeBtn.addEventListener('click', () => togglePause(false)); // Explicitly unpause
+             resetKeysBtn.addEventListener('click', resetKeybindings);
+             pauseOverlay.addEventListener('click', (e) => { // Close menu if clicking outside
+                  if (e.target === pauseOverlay) {
+                      togglePause(false); // Explicitly unpause
+                  }
+              });
+
+             keybindItems.forEach(item => {
+                 item.addEventListener('click', function() {
+                     if (currentListeningElement) { // If already listening, cancel previous
+                          currentListeningElement.classList.remove('listening');
+                          updateKeybindDisplay(); // Restore previous key text
+                     }
+                     currentListeningElement = this;
+                     this.classList.add('listening');
+                     this.querySelector('.keybind-key').textContent = '...';
+
+                     const action = this.getAttribute('data-action');
+
+                     const handleKeyPress = (e) => {
+                          e.preventDefault(); e.stopPropagation(); // Prevent game actions while binding
+                          let newKey = e.key.toLowerCase();
+                          if (newKey === 'escape') {
+                              // Cancel binding
+                          } else {
+                              if (newKey === ' ') newKey = 'space';
+                              // Check for conflicts (optional, basic check)
+                              for (const [act, k] of Object.entries(keybindings)) {
+                                   if (k === newKey && act !== action) {
+                                       alert(`Key '${newKey.toUpperCase()}' is already bound to '${act}'. Please choose another key.`);
+                                       // Don't cancel, let user try again immediately
+                                       this.querySelector('.keybind-key').textContent = '...'; // Keep listening prompt
+                                       return; // Skip rest of handler for this press
+                                   }
+                               }
+                              keybindings[action] = newKey;
+                              saveKeybindings();
+                          }
+                          // Finish binding process
+                          this.classList.remove('listening');
+                          updateKeybindDisplay(); // Update all displays
+                          currentListeningElement = null;
+                          document.removeEventListener('keydown', handleKeyPress, true); // Use capture phase to intercept first
+                      };
+                      // Use capture phase for the listener to catch keydown before game logic
+                      document.addEventListener('keydown', handleKeyPress, true);
+                  });
+             });
+         }
+
+        // === Event Listeners ===
+
+        // --- Window ---
+        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+
+        // --- Mouse ---
+        canvas.addEventListener('mousemove', (event) => {
+            mouseX = event.clientX; mouseY = event.clientY;
             const worldCoords = screenToWorld(mouseX, mouseY);
-            
-            // If in editor dragging mode, update planet position
-            if (isEditorOpen && isEditorDragging && selectedPlanet) {
-                selectedPlanet.x = worldCoords.x;
-                selectedPlanet.y = worldCoords.y;
-                selectedPlanet.trail = []; // Clear trail when dragging
-                return;
-            }
-            
-            // Update camera if dragging
-            if (isDragging) {
+
+            // Priority: Editor Dragging
+            if (isPlanetEditorOpen && isPlanetEditorDragging && selectedPlanet) {
+                 selectedPlanet.x = worldCoords.x; selectedPlanet.y = worldCoords.y;
+                 selectedPlanet.trail = []; simulationPaths = [];
+                 return; // Stop further processing
+             }
+             if (isPortalPropertiesEditorOpen && isPortalDragging && selectedPortal) {
+                 selectedPortal.x = worldCoords.x; selectedPortal.y = worldCoords.y;
+                 // No trail/sim paths for portals
+                 return; // Stop further processing
+             }
+
+            // View Dragging
+            if (isDraggingView) {
                 const dx = (mouseX - lastMouseX) / zoomLevel;
                 const dy = (mouseY - lastMouseY) / zoomLevel;
-                cameraX -= dx;
-                cameraY -= dy;
-                lastMouseX = mouseX;
-                lastMouseY = mouseY;
-            }
-            
-            // Check for hovered planet
-            hoveredPlanet = null;
-            for (let planet of planets) {
-                if (planet.isPointInside(worldCoords.x, worldCoords.y)) {
-                    hoveredPlanet = planet;
-                    break;
-                }
-            }
-        });
-
-        // Handle mouse down for dragging or selecting
-        canvas.addEventListener('mousedown', function(event) {
-            // If we're in editor dragging mode, handle drag interaction
-            if (isEditorOpen && isEditorDragging && selectedPlanet) {
-                return; // Already handling dragging in mousemove
-            }
-            
-            // If clicking on a planet, select it
-            if (hoveredPlanet) {
-                selectedPlanet = hoveredPlanet;
-                
-                // Check for double-click to open editor
-                if (event.detail === 2) {
-                    openPlanetEditor(selectedPlanet);
-                }
-                
-                return;
-            }
-            
-            // Otherwise start camera dragging
-            isDragging = true;
-            lastMouseX = event.clientX;
-            lastMouseY = event.clientY;
-            canvas.style.cursor = 'grabbing';
-            
-            // Clear selection if clicking on space
-            selectedPlanet = null;
-        });
-
-        // Handle mouse up for dragging
-        window.addEventListener('mouseup', function() {
-            isDragging = false;
-            canvas.style.cursor = 'default';
-        });
-
-        // Handle zoom with mouse wheel
-        canvas.addEventListener('wheel', function(event) {
-            event.preventDefault();
-            
-            // Get mouse position in world coordinates before zoom
-            const mouseWorldBefore = screenToWorld(mouseX, mouseY);
-            
-            // Apply zoom factor
-            const zoomFactor = event.deltaY < 0 ? 1.1 : 0.9;
-            zoomLevel *= zoomFactor;
-            
-            // Limit zoom level (increased max zoom out)
-            zoomLevel = Math.max(0.01, Math.min(zoomLevel, 10));
-            
-            // Get mouse position in world coordinates after zoom
-            const mouseWorldAfter = screenToWorld(mouseX, mouseY);
-            
-            // Adjust camera to keep mouse position fixed over same world position
-            cameraX += (mouseWorldBefore.x - mouseWorldAfter.x);
-            cameraY += (mouseWorldBefore.y - mouseWorldAfter.y);
-        });
-
-        // Handle key presses with custom keybindings
-        document.addEventListener('keydown', function(event) {
-            const key = event.key.toLowerCase();
-            
-            // Ignore key events when in editor mode (except Escape)
-            if (isEditorOpen && key !== 'escape') return;
-            
-            // Escape key to close editor
-            if (key === 'escape' && isEditorOpen) {
-                closePlanetEditor();
-                return;
-            }
-            
-            // Check for pause toggle
-            if (key === keybindings.togglePause) {
-                togglePause();
-                return;
-            }
-            
-            // If paused and not in editor mode, only allow resume
-            if (isPaused && !isEditorOpen) return;
-            
-            // Create new planet
-            if (key === keybindings.createPlanet) {
-                const worldCoords = screenToWorld(mouseX, mouseY);
-                const radius = MIN_PLANET_RADIUS + Math.random() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
-                planets.push(new Planet(worldCoords.x, worldCoords.y, radius));
-                
-                // Clear simulation paths when adding new planets
-                simulationPaths = [];
-            }
-            
-            // Delete hovered planet
-            if (key === keybindings.deletePlanet && hoveredPlanet) {
-                // Create explosion debris when manually deleting
-                createExplosionDebris(hoveredPlanet.x, hoveredPlanet.y, 
-                                    hoveredPlanet.vx, hoveredPlanet.vy,
-                                    hoveredPlanet.color, hoveredPlanet.radius);
-                
-                planets = planets.filter(planet => planet !== hoveredPlanet);
-                hoveredPlanet = null;
-                
-                // Clear simulation paths when removing planets
-                simulationPaths = [];
-            }
-            
-            // Simulate planet paths
-            if (key === keybindings.simulatePaths) {
-                simulatePaths();
-            }
-            
-            // Edit selected planet
-            if (key === keybindings.editPlanet && hoveredPlanet) {
-                openPlanetEditor(hoveredPlanet);
-            }
-            
-            // Reset camera
-            if (key === keybindings.resetCamera) {
-                resetCamera();
-            }
-        });
-
-        // Seeded random function for star generation
-        function seededRandom(x, y) {
-            const seed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-            return seed - Math.floor(seed);
-        }
-
-        // Generate star data for a grid cell and cache it
-        function generateStarsForCell(cellX, cellY) {
-            const cellKey = `${cellX},${cellY}`;
-            
-            if (starCache.has(cellKey)) {
-                return starCache.get(cellKey);
-            }
-            
-            const stars = [];
-            // Determine number of stars in this cell based on density - much less than before
-            const numStars = Math.floor(gridSize * gridSize * starDensity);
-            
-            for (let i = 0; i < numStars; i++) {
-                // Deterministic star position based on cell and index
-                const x = cellX * gridSize + gridSize * seededRandom(cellX, i);
-                const y = cellY * gridSize + gridSize * seededRandom(i, cellY);
-                
-                // Vary star size slightly
-                const size = 1.5 * (0.5 + seededRandom(x, y));
-                
-                // Vary star brightness
-                const alpha = 0.5 + 0.5 * seededRandom(y, x);
-                
-                stars.push({x, y, size, alpha});
-            }
-            
-            starCache.set(cellKey, stars);
-            return stars;
-        }
-
-        // Draw stars background that moves with camera - optimized
-        function drawStars() {
-            // Calculate visible grid cells with more restrictive bounds
-            const visibleWidth = canvas.width / zoomLevel;
-            const visibleHeight = canvas.height / zoomLevel;
-            
-            const startCellX = Math.floor((cameraX - visibleWidth/2) / gridSize);
-            const endCellX = Math.ceil((cameraX + visibleWidth/2) / gridSize);
-            const startCellY = Math.floor((cameraY - visibleHeight/2) / gridSize);
-            const endCellY = Math.ceil((cameraY + visibleHeight/2) / gridSize);
-            
-            // Apply throttling when zoomed out far
-            const skipFactor = Math.max(1, Math.floor(10 / zoomLevel));
-            
-            // Generate stars for visible grid cells
-            for (let cellX = startCellX; cellX <= endCellX; cellX++) {
-                for (let cellY = startCellY; cellY <= endCellY; cellY++) {
-                    // Skip cells based on zoom level for performance
-                    if ((cellX + cellY) % skipFactor !== 0 && zoomLevel < 0.2) continue;
-                    
-                    const stars = generateStarsForCell(cellX, cellY);
-                    
-                    // Draw stars from this cell
-                    for (const star of stars) {
-                        // Map to screen coordinates
-                        const screenPos = worldToScreen(star.x, star.y);
-                        
-                        // Only draw if on screen
-                        if (screenPos.x >= 0 && screenPos.x <= canvas.width &&
-                            screenPos.y >= 0 && screenPos.y <= canvas.height) {
-                            
-                            // Draw star
-                            ctx.beginPath();
-                            ctx.arc(screenPos.x, screenPos.y, star.size * zoomLevel, 0, Math.PI * 2);
-                            ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
-                            ctx.fill();
-                        }
+                cameraX -= dx; cameraY -= dy;
+                lastMouseX = mouseX; lastMouseY = mouseY;
+             } else { // Only check hover if not dragging view
+                 // Check portal hover first (smaller targets)
+                 hoveredPortal = null;
+                 if (!isPlanetEditorOpen && !isPortalEditorOpen) { // Don't hover portals while placing/editing planets
+                    // Iterate backwards so top portals are checked first if overlapping
+                     for (let i = portalPairs.length - 1; i >= 0; i--) {
+                         const pair = portalPairs[i];
+                         if (pair.portal1?.isPointInside(worldCoords.x, worldCoords.y)) {
+                             hoveredPortal = pair.portal1; break;
+                         }
+                         if (pair.portal2?.isPointInside(worldCoords.x, worldCoords.y)) {
+                             hoveredPortal = pair.portal2; break;
+                         }
+                     }
+                     // Check pending portal
+                     if (!hoveredPortal && pendingPortal1?.isPointInside(worldCoords.x, worldCoords.y)) {
+                        hoveredPortal = pendingPortal1;
                     }
-                }
-            }
-        }
+                 }
 
-        // Draw simulated paths
-        function drawSimulationPaths() {
-            if (simulationPaths.length === 0 || simulationPaths[0].length === 0) return;
-            
-            // Draw paths for each planet
-            for (let i = 0; i < Math.min(planets.length, simulationPaths.length); i++) {
-                const planet = planets[i];
-                const path = simulationPaths[i];
-                
-                if (path.length < 2) continue;
-                
-                ctx.beginPath();
-                
-                // Start at the current planet position
-                const startPos = worldToScreen(planet.x, planet.y);
-                ctx.moveTo(startPos.x, startPos.y);
-                
-                // Draw dotted line for the predicted path
-                ctx.setLineDash([5, 5]);
-                
-                // Draw the path with gradient opacity
-                for (let j = 0; j < path.length; j++) {
-                    const point = worldToScreen(path[j].x, path[j].y);
-                    ctx.lineTo(point.x, point.y);
-                }
-                
-                // Path color based on planet with reduced opacity
-                const r = parseInt(planet.color.slice(1, 3), 16);
-                const g = parseInt(planet.color.slice(3, 5), 16);
-                const b = parseInt(planet.color.slice(5, 7), 16);
-                
-                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
-                ctx.lineWidth = 1.5 * zoomLevel;
-                ctx.stroke();
-                
-                // Reset line dash
-                ctx.setLineDash([]);
-            }
-        }
 
-        // Animation variables
+                 // Check planet hover only if no portal is hovered
+                 hoveredPlanet = null;
+                 if (!hoveredPortal && !isPortalEditorOpen && !isPortalPropertiesEditorOpen) { // Don't hover planets during portal stuff
+                     // Iterate backwards
+                     for (let i = planets.length - 1; i >= 0; i--) {
+                         if (planets[i].isPointInside(worldCoords.x, worldCoords.y)) {
+                             hoveredPlanet = planets[i]; break;
+                         }
+                     }
+                 }
+             }
+             // Update cursor style based on hover/drag state
+              if (isDraggingView) canvas.style.cursor = 'grabbing';
+              else if (isPlanetEditorDragging || isPortalDragging) canvas.style.cursor = 'move';
+              else if (hoveredPlanet || hoveredPortal) canvas.style.cursor = 'pointer';
+              else canvas.style.cursor = 'default';
+
+        });
+
+        canvas.addEventListener('mousedown', (event) => {
+             // Handle editor dragging start first
+             if (isPlanetEditorOpen && isPlanetEditorDragging) { return; } // Drag starts on button click now
+             if (isPortalPropertiesEditorOpen && isPortalDragging) { return; } // Drag starts on button click now
+
+             // Double Click Logic (Portal > Planet)
+             if (event.detail === 2) { // Double click
+                 if (hoveredPortal && !hoveredPortal.isPending) {
+                     openPortalPropertiesEditor(hoveredPortal);
+                     return; // Handled
+                 }
+                 if (hoveredPlanet) {
+                     openPlanetEditor(hoveredPlanet);
+                     return; // Handled
+                 }
+             }
+
+             // Single Click Logic (Selection / View Drag)
+             if (event.detail === 1) { // Single click
+                 // Select Portal
+                 if (hoveredPortal) {
+                     selectedPortal = hoveredPortal;
+                     selectedPlanet = null; // Deselect planet
+                     // Don't start view drag if clicking selectable object
+                     return;
+                 }
+                 // Select Planet
+                 if (hoveredPlanet) {
+                     selectedPlanet = hoveredPlanet;
+                     selectedPortal = null; // Deselect portal
+                     // Don't start view drag
+                     return;
+                 }
+
+                 // Clicked empty space: Deselect all & Start View Drag
+                 selectedPlanet = null;
+                 selectedPortal = null;
+                 isDraggingView = true;
+                 lastMouseX = event.clientX; lastMouseY = event.clientY;
+                 canvas.style.cursor = 'grabbing';
+             }
+        });
+
+        window.addEventListener('mouseup', (event) => { // Use window to catch mouseup outside canvas
+             if (isDraggingView) {
+                 isDraggingView = false;
+                 canvas.style.cursor = hoveredPlanet || hoveredPortal ? 'pointer' : 'default';
+             }
+             // Note: Editor dragging state is managed by button toggles, not mouseup directly
+        });
+
+        canvas.addEventListener('wheel', (event) => { /* ... (keep existing logic) ... */
+              event.preventDefault();
+             const mouseWorldBefore = screenToWorld(mouseX, mouseY);
+             const zoomFactor = event.deltaY < 0 ? 1.1 : 0.9;
+             const currentZoom = zoomLevel; // Store current zoom before changing
+
+             zoomLevel *= zoomFactor;
+             zoomLevel = Math.max(0.01, Math.min(zoomLevel, 15)); // Allow slightly more zoom out
+
+             // Check if zoom actually changed (prevent unnecessary adjustments)
+              if (zoomLevel === currentZoom) return;
+
+             const mouseWorldAfter = screenToWorld(mouseX, mouseY);
+             cameraX += (mouseWorldBefore.x - mouseWorldAfter.x);
+             cameraY += (mouseWorldBefore.y - mouseWorldAfter.y);
+         });
+
+        // --- Keyboard ---
+        document.addEventListener('keydown', (event) => {
+             const key = event.key.toLowerCase();
+
+             // Global escape check (close editors/menu)
+             if (key === 'escape') {
+                 if (currentListeningElement) { // Cancel keybinding first
+                     currentListeningElement.classList.remove('listening');
+                     updateKeybindDisplay();
+                     currentListeningElement = null;
+                     document.removeEventListener('keydown', handleKeyPress, true); // Remove listener!
+                     return; // Handled
+                 }
+                  if (isPortalPropertiesEditorOpen) { closePortalPropertiesEditor(); return; }
+                  if (isPortalEditorOpen) { closePortalEditor(); return; }
+                  if (isPlanetEditorOpen) { closePlanetEditor(); return; }
+                  if (isPaused && pauseOverlay.classList.contains('active')) { togglePause(false); return; } // Close pause menu
+             }
+
+             // Ignore game actions if pause menu is active for keybinding
+             if (pauseOverlay.classList.contains('active')) return;
+
+             // Actions only available when not in editor mode
+             if (!isPlanetEditorOpen && !isPortalEditorOpen && !isPortalPropertiesEditorOpen) {
+                 // --- Toggle Pause ---
+                 if (key === keybindings.togglePause) { togglePause(); return; }
+
+                 // --- Actions only available when NOT paused ---
+                 if (!isPaused) {
+                     // Create Planet
+                     if (key === keybindings.createPlanet) {
+                         const worldCoords = screenToWorld(mouseX, mouseY);
+                         const radius = MIN_PLANET_RADIUS + Math.random() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
+                         planets.push(new Planet(worldCoords.x, worldCoords.y, radius));
+                         simulationPaths = []; // Invalidate simulation
+                         return;
+                     }
+                     // Delete Hovered Planet
+                     if (key === keybindings.deletePlanet && hoveredPlanet) {
+                         createExplosionDebris(hoveredPlanet.x, hoveredPlanet.y, hoveredPlanet.vx, hoveredPlanet.vy, hoveredPlanet.color, hoveredPlanet.radius);
+                         planets = planets.filter(p => p !== hoveredPlanet);
+                         if (selectedPlanet === hoveredPlanet) selectedPlanet = null;
+                         hoveredPlanet = null;
+                         simulationPaths = []; // Invalidate simulation
+                         return;
+                     }
+                     // Simulate Paths
+                     if (key === keybindings.simulatePaths) { simulatePaths(); return; }
+                     // Edit Hovered Planet
+                     if (key === keybindings.editPlanet && hoveredPlanet) { openPlanetEditor(hoveredPlanet); return; }
+                     // Open Portal Editor
+                     if (key === keybindings.openPortalEditor) { openPortalEditor(); return; }
+                      // Reset Camera
+                      if (key === keybindings.resetCamera) { resetCamera(); return; }
+                 }
+             }
+             // --- Actions available IN EDITORS (usually handled by editor inputs/buttons directly) ---
+             // Example: If you wanted 'Enter' to apply changes in planet editor
+             // if (isPlanetEditorOpen && key === 'enter') { applyPlanetEditorChanges(); closePlanetEditor(); }
+        });
+
+        // --- Editor Specific Button/Input Listeners ---
+
+        // Planet Editor
+        planetSize.addEventListener('input', applyPlanetEditorChanges);
+        planetMass.addEventListener('input', applyPlanetEditorChanges);
+        planetColor.addEventListener('input', applyPlanetEditorChanges);
+        speedValue.addEventListener('input', () => { applyPlanetEditorChanges(); updatePlanetVelocityArrow(); });
+        directionValue.addEventListener('input', () => { applyPlanetEditorChanges(); updatePlanetVelocityArrow(); });
+        dragPlanetBtn.addEventListener('click', () => {
+             isPlanetEditorDragging = !isPlanetEditorDragging;
+             dragPlanetBtn.classList.toggle('active');
+             canvas.style.cursor = isPlanetEditorDragging ? 'move' : 'default';
+         });
+        applyChangesBtn.addEventListener('click', applyPlanetEditorChanges); // Maybe redundant if inputs apply live? Good for confirmation.
+        exitEditorBtn.addEventListener('click', closePlanetEditor);
+
+        // Portal Editor (Main)
+        createPortal1Btn.addEventListener('click', () => createPortal(true));
+        createPortal2Btn.addEventListener('click', () => createPortal(false));
+        deleteAllPortalsBtn.addEventListener('click', deleteAllPortals);
+        exitPortalEditorBtn.addEventListener('click', closePortalEditor);
+
+        // Portal Properties Editor
+        portalPropSize.addEventListener('input', applyPortalPropertiesChanges);
+        portalPropColor.addEventListener('input', applyPortalPropertiesChanges);
+        portalPropSpeed.addEventListener('input', applyPortalPropertiesChanges);
+        portalPropDirection.addEventListener('input', applyPortalPropertiesChanges);
+        // IMPORTANT: Make sure the HTML has id="dragPortalPropBtn" for this one
+        dragPortalPropBtn.addEventListener('click', () => {
+             isPortalDragging = !isPortalDragging; // Use the correct flag
+             dragPortalPropBtn.classList.toggle('active');
+             canvas.style.cursor = isPortalDragging ? 'move' : 'default';
+         });
+        exitPortalPropertiesBtn.addEventListener('click', closePortalPropertiesEditor);
+
+
+        // === Drawing Functions ===
+
+        function drawStars() { /* ... (keep existing optimized logic) ... */
+             ctx.fillStyle = '#000'; // Optimized: set fill style once
+             const visibleWidth = canvas.width / zoomLevel;
+             const visibleHeight = canvas.height / zoomLevel;
+             const startCellX = Math.floor((cameraX - visibleWidth / 2) / gridSize);
+             const endCellX = Math.ceil((cameraX + visibleWidth / 2) / gridSize);
+             const startCellY = Math.floor((cameraY - visibleHeight / 2) / gridSize);
+             const endCellY = Math.ceil((cameraY + visibleHeight / 2) / gridSize);
+             const skipFactor = Math.max(1, Math.floor(5 / zoomLevel)); // Slightly less aggressive skip
+
+             for (let cellX = startCellX; cellX <= endCellX; cellX++) {
+                 for (let cellY = startCellY; cellY <= endCellY; cellY++) {
+                     if (zoomLevel < 0.1 && (cellX % skipFactor !== 0 || cellY % skipFactor !== 0)) continue;
+
+                     const stars = getStarsForCell(cellX, cellY); // Use getter function
+                     for (const star of stars) {
+                         const screenPos = worldToScreen(star.x, star.y);
+                         // Simple bounding box check
+                         if (screenPos.x >= -5 && screenPos.x <= canvas.width + 5 &&
+                             screenPos.y >= -5 && screenPos.y <= canvas.height + 5) {
+                              // Draw star
+                             ctx.beginPath();
+                             // Ensure minimum visible size for stars when zoomed out
+                             const starDrawSize = Math.max(0.5, star.size * zoomLevel);
+                             ctx.arc(screenPos.x, screenPos.y, starDrawSize, 0, Math.PI * 2);
+                             ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`; // Set fillStyle per star alpha
+                             ctx.fill();
+                         }
+                     }
+                 }
+             }
+         }
+        // Helper for star generation/caching
+        function getStarsForCell(cellX, cellY) { /* ... (keep existing generation logic, just wrapped) ... */
+             const cellKey = `${cellX},${cellY}`;
+             if (starCache.has(cellKey)) return starCache.get(cellKey);
+
+             const stars = [];
+             const numStars = Math.floor(gridSize * gridSize * starDensity * (0.5 + Math.random())); // Add some variation per cell
+             const seed = cellX * 31 + cellY * 17; // Simple seed based on cell coords
+
+             function seededRandom(s) { // Simple pseudo-random based on seed
+                 var x = Math.sin(s) * 10000;
+                 return x - Math.floor(x);
+             }
+
+             for (let i = 0; i < numStars; i++) {
+                 const s1 = seed + i * 1.1;
+                 const s2 = seed + i * 2.3;
+                 const x = cellX * gridSize + gridSize * seededRandom(s1);
+                 const y = cellY * gridSize + gridSize * seededRandom(s2);
+                 const size = 1.5 * (0.5 + seededRandom(s1 + s2));
+                 const alpha = 0.4 + 0.6 * seededRandom(s2 + i); // More variation, slightly dimmer average
+                 stars.push({ x, y, size, alpha });
+             }
+             starCache.set(cellKey, stars);
+             return stars;
+         }
+        function drawSimulationPaths() { /* ... (keep existing logic, maybe adapt to path array changes) ... */
+              if (simulationPaths.length === 0 || simulationPaths.every(p => p.length < 2)) return;
+
+              ctx.setLineDash([5 * zoomLevel, 5 * zoomLevel]); // Adjust dash based on zoom
+
+              // Match paths to *current* planets based on index - imperfect if planets were destroyed during sim
+              for (let i = 0; i < planets.length; i++) {
+                  if (i >= simulationPaths.length || !simulationPaths[i] || simulationPaths[i].length < 2) continue;
+
+                  const planet = planets[i];
+                  const path = simulationPaths[i];
+                  const pathColorMatch = planet.color.match(/\d+/g);
+                  if (!pathColorMatch) continue; // Skip if color invalid
+
+                  ctx.beginPath();
+                  const startPos = worldToScreen(planet.x, planet.y); // Start from current pos
+                  ctx.moveTo(startPos.x, startPos.y);
+
+                  // Draw path segments
+                  for (let j = 0; j < path.length; j++) {
+                      const point = worldToScreen(path[j].x, path[j].y);
+                       // Basic culling: Don't draw segments far off screen
+                       // A more robust method would check line intersection with viewport
+                       if (j > 0) {
+                          const prevPoint = worldToScreen(path[j-1].x, path[j-1].y);
+                          if (Math.max(point.x, prevPoint.x) < 0 || Math.min(point.x, prevPoint.x) > canvas.width ||
+                              Math.max(point.y, prevPoint.y) < 0 || Math.min(point.y, prevPoint.y) > canvas.height) {
+                               // Move to the current point if the segment was culled to avoid long lines across the screen
+                               ctx.moveTo(point.x, point.y);
+                               continue;
+                           }
+                       }
+                      ctx.lineTo(point.x, point.y);
+                  }
+
+                  ctx.strokeStyle = `rgba(${pathColorMatch[0]}, ${pathColorMatch[1]}, ${pathColorMatch[2]}, 0.5)`;
+                  ctx.lineWidth = Math.max(0.5, 1.5 * zoomLevel); // Ensure min width
+                  ctx.stroke();
+              }
+              ctx.setLineDash([]); // Reset line dash
+         }
+        function drawPortals() {
+             // Draw pending portal first (usually below pairs)
+             if (pendingPortal1) {
+                 pendingPortal1.draw(ctx);
+             }
+             // Draw established pairs
+             for (const pair of portalPairs) {
+                 if(pair.portal1) pair.portal1.draw(ctx);
+                 if(pair.portal2) pair.portal2.draw(ctx);
+             }
+         }
+
+        // === Animation Loop ===
         let lastTime = 0;
-
-        // Animation loop with time control
         function animate(currentTime) {
             requestAnimationFrame(animate);
-            
-            // Calculate delta time (in seconds)
-            const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1); // Cap dt at 0.1s to prevent huge jumps
+            const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1); // Time in seconds
             lastTime = currentTime;
-            
-            // Apply time scale to delta time
-            const dt = deltaTime * timeScale;
-            
-            // Clear canvas
+            const dt = deltaTime * timeScale; // Scaled time step for physics
+
+            // --- Clear Canvas ---
             ctx.fillStyle = 'rgba(0, 0, 0, 1)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw stars in background
+
+            // --- Background ---
             drawStars();
-            
-            // Draw simulation paths if available
+
+            // --- Paths & Portals (Visuals) ---
             drawSimulationPaths();
-            
-            // Skip physics updates if simulating or paused
-            if (!isSimulating && !isPaused) {
-                // Handle collisions
-                handleCollisions(dt);
-                
-                // Update and draw planets
-                for (let planet of planets) {
-                    planet.update(planets, dt);
-                    planet.draw(ctx);
-                }
-                
-                // Update and draw debris
-                debris = debris.filter(particle => {
-                    const alive = particle.update(dt);
-                    if (alive) {
-                        particle.draw(ctx);
-                    }
-                    return alive;
-                });
-            } else {
-                // Just draw planets without updating
-                for (let planet of planets) {
-                    planet.draw(ctx);
-                }
-                
-                // Draw debris without updating in paused mode
-                for (let particle of debris) {
-                    particle.draw(ctx);
-                }
-            }
+            drawPortals(); // Draw portals after paths, before objects
+
+            // --- Physics & Object Updates (if not paused/simulating) ---
+             if (!isPaused && dt > 0) { // Only update if time is progressing
+                 // 1. Apply Gravity & Update Position (Planets)
+                 planets.forEach(p => p.update(planets, dt));
+                 // 2. Handle Collisions (Planets)
+                 handleCollisions(dt); // Modifies 'planets' array directly
+                 // 3. Handle Portal Teleportation (Planets)
+                 handlePortalTeleportation(planets, dt);
+                 // 4. Update Debris Position & Lifetime
+                  debris = debris.filter(d => d.update(dt));
+                 // 5. Handle Portal Teleportation (Debris)
+                 handlePortalTeleportation(debris, dt);
+
+             } else if (isPaused) {
+                  // Need to update cooldowns even when paused if they are frame-based
+                 planets.forEach(p => { if(p.teleportCooldown > 0) p.teleportCooldown--; });
+                 debris.forEach(d => { if(d.teleportCooldown > 0) d.teleportCooldown--; });
+             }
+
+
+            // --- Draw Objects ---
+            // Draw Debris first (behind planets)
+            debris.forEach(d => d.draw(ctx));
+            // Draw Planets
+            planets.forEach(p => p.draw(ctx));
+
+             // --- Cleanup ---
+             // Remove debris that are too faint or too small? (optional)
+             // debris = debris.filter(d => d.alpha > 0.01 && d.size * zoomLevel > 0.2);
+
         }
 
-        // Load keybindings and start animation
-        loadKeybindings();
+        // === Initial Setup ===
+        // Create a few initial planets
+        for (let i = 0; i < 3; i++) {
+            const radius = MIN_PLANET_RADIUS + Math.random() * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS);
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 200 + Math.random() * 200;
+            const x = Math.cos(angle) * dist;
+            const y = Math.sin(angle) * dist;
+            planets.push(new Planet(x,y, radius));
+        }
+        // Maybe one large central "star"?
+         //planets.push(new Planet(0, 0, MAX_PLANET_RADIUS * 1.5));
+         //planets[planets.length-1].massMultiplier = 10; // Make it heavy
+         //planets[planets.length-1].color = '#f1c40f'; // Yellowish
+         //applyPlanetEditorChanges(); // Recalculate mass for the star if using this method
+
+
+        // Start the simulation
         animate(0);
+
     </script>
 </body>
 </html>
